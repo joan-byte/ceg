@@ -1,0 +1,21 @@
+# .gitignore
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# MacOS
+.DS_Store
+
+# Node modules
+node_modules/
+dist/
