@@ -31,7 +31,7 @@ class SocioCreate(SocioBase):
     password: str
 
 class SocioUpdate(SocioBase):
-    password: str
+    password: Optional[str] = None
 
 class Socio(SocioBase):
     id: int
@@ -81,7 +81,6 @@ class ReservaBase(BaseModel):
     dia: datetime
     hora_inicio: datetime
     hora_fin: datetime
-    individuales: bool
     jugador1_id: int
     jugador2_id: int
     jugador3_id: Optional[int] = None
