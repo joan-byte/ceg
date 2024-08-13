@@ -25,32 +25,30 @@ class Jugador(Base):
     name = Column(String, index=True)
     apellido = Column(String, index=True)
     tipo_jugador = Column(String)  # (Socio Deportivo, Socio Paseante, No Socio)
+    reserva_id = Column(Integer, ForeignKey('reservas.id', ondelete="CASCADE"))  # Nueva columna para la relación con reservas
+
+    # Relación con la tabla Reserva
+    reserva = relationship("Reserva", back_populates="jugadores")
 
 class Pista(Base):
     __tablename__ = "pistas"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    tipo_pista = Column(String)  # (Tenis, Padel)
-    tiempo_juego = Column(Integer)  # en minutos
-    individuales = Column(Boolean)
+    name = Column(String, unique=True, nullable=False)
+    tipo_pista = Column(String, nullable=False)
+    tiempo_juego = Column(Integer, nullable=False)
+    individuales = Column(Boolean, default=True)
+
+    reservas = relationship("Reserva", back_populates="pista")
 
 class Reserva(Base):
     __tablename__ = "reservas"
     id = Column(Integer, primary_key=True, index=True)
-    pista_id = Column(Integer, ForeignKey('pistas.id'))
+    pista_id = Column(Integer, ForeignKey('pistas.id'), nullable=False)
     dia = Column(DateTime, index=True)
     hora_inicio = Column(DateTime)
     hora_fin = Column(DateTime)
     individuales = Column(Boolean)
-    
+
     # Relaciones
-    pista = relationship("Pista")
-    jugador1_id = Column(Integer, ForeignKey('jugadores.id'))
-    jugador2_id = Column(Integer, ForeignKey('jugadores.id'))
-    jugador3_id = Column(Integer, ForeignKey('jugadores.id'), nullable=True)
-    jugador4_id = Column(Integer, ForeignKey('jugadores.id'), nullable=True)
-    
-    jugador1 = relationship("Jugador", foreign_keys=[jugador1_id])
-    jugador2 = relationship("Jugador", foreign_keys=[jugador2_id])
-    jugador3 = relationship("Jugador", foreign_keys=[jugador3_id])
-    jugador4 = relationship("Jugador", foreign_keys=[jugador4_id])
+    pista = relationship("Pista", back_populates="reservas")
+    jugadores = relationship("Jugador", back_populates="reserva", cascade="all, delete-orphan")  # Relación con jugadores con eliminación en cascada
