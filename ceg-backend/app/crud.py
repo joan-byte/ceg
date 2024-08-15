@@ -336,6 +336,10 @@ def delete_reserva(db: Session, reserva_id: int):
         db.rollback()
         raise Exception(f"Error al eliminar la reserva: {str(e)}")
 
+#Funcion para obtener socio por name y lastname
+def get_socio_by_name_and_lastname(db: Session, name: str, lastname: str):
+    return db.query(models.Socio).filter(models.Socio.name == name, models.Socio.lastname == lastname).first()
+
 # Función para obtener reservas por nombre de jugador
 def get_reservas_by_jugador(db: Session, name: str, apellido: str):
     return db.query(models.Reserva).join(models.Jugador).filter(

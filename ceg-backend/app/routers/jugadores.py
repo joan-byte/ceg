@@ -21,6 +21,16 @@ def get_jugadores(skip: int = 0, limit: int = 10, db: Session = Depends(get_db))
     jugadores = crud.get_jugadores(db, skip=skip, limit=limit)
     return jugadores
 
+# Funcion para verificar si el jugador es socio 
+@router.post("/jugadores/verificar", response_model=str)  # Indicamos que la respuesta es solo un string
+def verificar_jugador(jugador: schemas.JugadorReserva, db: Session = Depends(get_db)):
+    socio = crud.get_socio_by_name_and_lastname(db, name=jugador.name, lastname=jugador.apellido)
+    
+    if socio:
+        return socio.type  # Devolvemos directamente el tipo de socio
+    else:
+        return "No Socio"  # Devolvemos "No Socio" si no se encuentra el socio
+    
 # Función para crear un jugador
 @router.post("/jugadores/", response_model=schemas.Jugador)
 def create_jugador(jugador: schemas.JugadorCreate, db: Session = Depends(get_db)):
