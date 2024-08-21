@@ -1,13 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import admin, socios, jugadores, pistas, reservas
-from app.database import engine
-from app.database import engine, Base  # Asegúrate de importar Base y engine desde app.database
+from app.database import engine, Base
 from app import models
+import logging
 
-models.Base.metadata.create_all(bind=engine)
+# Configuración de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Crear las tablas en la base de datos
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up the application")
+    for route in app.routes:
+        logger.info(f"Route: {route.path}, methods: {route.methods}")
 
 # Configuración de CORS
 origins = [
@@ -23,11 +34,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(admin.router)
-app.include_router(socios.router)
-app.include_router(jugadores.router)
-app.include_router(pistas.router)
-app.include_router(reservas.router)
+# Incluir routers
+app.include_router(admin.router, prefix="/admins", tags=["admin"])
+app.include_router(socios.router, prefix="/socios", tags=["socios"])
+app.include_router(jugadores.router, prefix="/jugadores", tags=["jugadores"])
+app.include_router(pistas.router, prefix="/pistas", tags=["pistas"])
+app.include_router(reservas.router, prefix="/reservas", tags=["reservas"])
 
-# Crear tablas en la base de datos
-Base.metadata.create_all(bind=engine)
+# Endpoint de prueba
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}

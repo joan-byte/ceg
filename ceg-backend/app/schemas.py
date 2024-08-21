@@ -1,5 +1,5 @@
-from datetime import datetime
-from pydantic import BaseModel
+from datetime import date, time, datetime
+from pydantic import BaseModel, validator, Field
 from typing import List, Optional
 
 # Esquema para manejar los datos básicos de un jugador en una reserva
@@ -33,27 +33,45 @@ class Jugador(JugadorBase):
 
 # Esquemas para la gestión de reservas
 class ReservaBase(BaseModel):
-    dia: datetime
-    hora_inicio: datetime
-    hora_fin: datetime
+    dia: date
+    hora_inicio: time
+    hora_fin: time
     pista_id: int  
     individuales: bool
 
     class Config:
         from_attributes = True
+        
+class JugadorCreate(BaseModel):
+    name: str = ""
+    apellido: str = ""
+    tipo_jugador: str = ""     
 
 class ReservaCreate(ReservaBase):
-    jugadores: List[JugadorReserva]  # Lista de jugadores en la reserva
+    jugadores: List[JugadorCreate] = Field(..., min_items=4, max_items=4)
+
+    @validator('jugadores')
+    def validate_jugadores(cls, v, values):
+        jugadores_validos = [j for j in v if j.name and j.apellido]
+        
+        if 'individuales' in values:
+            if values['individuales']:
+                if len(jugadores_validos) not in [2, 4]:
+                    raise ValueError('Para pistas que permiten partidas individuales, debe haber 2 o 4 jugadores con datos completos')
+            else:
+                if len(jugadores_validos) != 4:
+                    raise ValueError('Para pistas que no permiten partidas individuales, debe haber exactamente 4 jugadores con datos completos')
+        return v  # Lista de jugadores en la reserva
 
 class ReservaUpdate(ReservaBase):
     jugadores: List[JugadorReserva]  # Lista de jugadores en la reserva
 
 class Reserva(ReservaBase):
     id: int
-    jugadores: List[Jugador]  # Relación con los jugadores
+    jugadores: List[Jugador]
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Esquemas para la gestión de administradores
 class AdminBase(BaseModel):

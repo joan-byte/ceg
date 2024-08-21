@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Date, Time
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -24,10 +24,9 @@ class Jugador(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     apellido = Column(String, index=True)
-    tipo_jugador = Column(String)  # (Socio Deportivo, Socio Paseante, No Socio)
-    reserva_id = Column(Integer, ForeignKey('reservas.id', ondelete="CASCADE"))  # Nueva columna para la relación con reservas
-
-    # Relación con la tabla Reserva
+    tipo_jugador = Column(String)
+    reserva_id = Column(Integer, ForeignKey('reservas.id', ondelete="CASCADE"))
+    
     reserva = relationship("Reserva", back_populates="jugadores")
 
 class Pista(Base):
@@ -44,11 +43,12 @@ class Reserva(Base):
     __tablename__ = "reservas"
     id = Column(Integer, primary_key=True, index=True)
     pista_id = Column(Integer, ForeignKey('pistas.id'), nullable=False)
-    dia = Column(DateTime, index=True)
-    hora_inicio = Column(DateTime)
-    hora_fin = Column(DateTime)
+    dia = Column(Date, index=True)
+    hora_inicio = Column(Time)
+    hora_fin = Column(Time)
     individuales = Column(Boolean)
 
     # Relaciones
     pista = relationship("Pista", back_populates="reservas")
-    jugadores = relationship("Jugador", back_populates="reserva", cascade="all, delete-orphan")  # Relación con jugadores con eliminación en cascada
+    jugadores = relationship("Jugador", back_populates="reserva", cascade="all, delete-orphan")
+
