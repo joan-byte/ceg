@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 from app import models, schemas
 from passlib.context import CryptContext
@@ -229,7 +229,11 @@ def get_reserva(db: Session, reserva_id: int):
     return db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
 
 def get_reservas(db: Session, skip: int = 0, limit: int = 10):
-    return db.query(models.Reserva).offset(skip).limit(limit).all()
+    return db.query(models.Reserva)\
+             .options(joinedload(models.Reserva.jugadores))\
+             .offset(skip)\
+             .limit(limit)\
+             .all()
 
 def create_reserva(db: Session, reserva: schemas.ReservaCreate):
     # Combinar fecha y hora para crear objetos datetime completos

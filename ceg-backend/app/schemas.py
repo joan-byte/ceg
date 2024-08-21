@@ -71,8 +71,7 @@ class Reserva(ReservaBase):
     jugadores: List[Jugador]
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 # Esquemas para la gestión de administradores
 class AdminBase(BaseModel):
     name: str

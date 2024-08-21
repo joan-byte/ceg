@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from pydantic import ValidationError
 from app.database import get_db
+from typing import List
 import logging
 
 router = APIRouter()
@@ -52,7 +53,7 @@ async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(g
         logger.error(f"Error al crear la reserva: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=list[schemas.Reserva])
+@router.get("/", response_model=List[schemas.Reserva])
 def read_reservas(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     reservas = crud.get_reservas(db, skip=skip, limit=limit)
     return reservas
