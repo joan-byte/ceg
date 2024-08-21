@@ -60,8 +60,13 @@
 <script>
 import axios from 'axios';
 import '../styles/reservas.css';
+import { useRouter } from 'vue-router';
 
 export default {
+  setup() {
+    const router = useRouter();
+    return { router };
+  },
   data() {
     return {
       pistas: [], // Lista de pistas
@@ -90,14 +95,14 @@ export default {
     }
   },
   watch: {
-  'reserva.pista_id': function(newVal) {
-    if (newVal) {
-      this.reserva.individuales = this.pistaSeleccionada.individuales;
-      this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 4 : 4; // Siempre 4 inputs, pero permitimos 2 o 4 jugadores para pistas individuales
-      this.ajustarJugadores();
+    'reserva.pista_id': function(newVal) {
+      if (newVal) {
+        this.reserva.individuales = this.pistaSeleccionada.individuales;
+        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 4 : 4; // Siempre 4 inputs, pero permitimos 2 o 4 jugadores para pistas individuales
+        this.ajustarJugadores();
+      }
     }
-  }
-},
+  },
   methods: {
     async fetchPistas() {
       try {
@@ -136,11 +141,11 @@ export default {
       }
     },
     ajustarJugadores() {
-  while (this.jugadores.length < 4) {
-    this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
-  }
-  this.jugadores = this.jugadores.slice(0, 4);
-},
+      while (this.jugadores.length < 4) {
+        this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+      }
+      this.jugadores = this.jugadores.slice(0, 4);
+    },
     handleReset() {
       this.reserva = {
         pista_id: '',
@@ -158,54 +163,56 @@ export default {
       this.jugadoresRequeridos = 4;
     },
     async handleSubmit() {
-  const tieneSocio = this.jugadores.some(jugador => jugador.tipo_jugador && jugador.tipo_jugador !== 'No Socio');
-  if (!tieneSocio) {
-    alert("Debe haber al menos un jugador socio para realizar la reserva.");
-    return;
-  }
+      const tieneSocio = this.jugadores.some(jugador => jugador.tipo_jugador && jugador.tipo_jugador !== 'No Socio');
+      if (!tieneSocio) {
+        alert("Debe haber al menos un jugador socio para realizar la reserva.");
+        return;
+      }
 
-  const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
+      const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
 
-  if (this.pistaSeleccionada.individuales) {
-    if (jugadoresCompletos.length !== 2 && jugadoresCompletos.length !== 4) {
-      alert("Para una pista individual, debe haber 2 o 4 jugadores completos.");
-      return;
-    }
-  } else {
-    if (jugadoresCompletos.length !== 4) {
-      alert("Para una pista no individual, debe haber exactamente 4 jugadores completos.");
-      return;
-    }
-  }
+      if (this.pistaSeleccionada.individuales) {
+        if (jugadoresCompletos.length !== 2 && jugadoresCompletos.length !== 4) {
+          alert("Para una pista individual, debe haber 2 o 4 jugadores completos.");
+          return;
+        }
+      } else {
+        if (jugadoresCompletos.length !== 4) {
+          alert("Para una pista no individual, debe haber exactamente 4 jugadores completos.");
+          return;
+        }
+      }
 
-  const reservaData = {
-    ...this.reserva,
-    jugadores: this.jugadores.map(jugador => ({
-      name: jugador.name,
-      apellido: jugador.apellido,
-      tipo_jugador: jugador.tipo_jugador
-    }))
-  };
+      const reservaData = {
+        ...this.reserva,
+        jugadores: this.jugadores.map(jugador => ({
+          name: jugador.name,
+          apellido: jugador.apellido,
+          tipo_jugador: jugador.tipo_jugador
+        }))
+      };
 
-  console.log("Datos a enviar:", JSON.stringify(reservaData, null, 2));
+      console.log("Datos a enviar:", JSON.stringify(reservaData, null, 2));
 
-  try {
-    const response = await axios.post('http://localhost:8000/reservas/', reservaData);
-    console.log("Respuesta del servidor:", response.data);
-    alert("Reserva guardada con éxito");
-    this.handleReset();
-    this.fetchPistas();
-  } catch (error) {
-    console.error("Error completo:", error);
-    if (error.response) {
-      console.error("Datos de la respuesta:", error.response.data);
-      console.error("Detalle del error:", JSON.stringify(error.response.data.detail, null, 2));
-      console.error("Estado de la respuesta:", error.response.status);
-      console.error("Cabeceras de la respuesta:", error.response.headers);
-    }
-    alert("Error al guardar la reserva: " + (error.response?.data?.detail ? JSON.stringify(error.response.data.detail) : error.message));
-  }
-},
+      try {
+        const response = await axios.post('http://localhost:8000/reservas/', reservaData);
+        console.log("Respuesta del servidor:", response.data);
+        alert("Reserva guardada con éxito");
+        this.handleReset();
+        this.fetchPistas();
+        // Redirigir a la página de inicio
+        this.router.push('/');
+      } catch (error) {
+        console.error("Error completo:", error);
+        if (error.response) {
+          console.error("Datos de la respuesta:", error.response.data);
+          console.error("Detalle del error:", JSON.stringify(error.response.data.detail, null, 2));
+          console.error("Estado de la respuesta:", error.response.status);
+          console.error("Cabeceras de la respuesta:", error.response.headers);
+        }
+        alert("Error al guardar la reserva: " + (error.response?.data?.detail ? JSON.stringify(error.response.data.detail) : error.message));
+      }
+    },
   },
   mounted() {
     this.fetchPistas();
