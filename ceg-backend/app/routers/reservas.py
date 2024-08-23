@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from pydantic import ValidationError
 from app.database import get_db
+from ..reserva_validations import verificar_reserva
 from typing import List
 import logging
 
@@ -16,7 +17,32 @@ logging.basicConfig(level=logging.INFO)
 async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(get_db)):
     try:
         logger.info(f"Intentando crear una reserva con datos: {reserva.dict()}")
-        
+
+        # Realizar todas las verificaciones
+        errores = verificar_reserva(db, reserva)
+        if errores:
+            raise HTTPException(status_code=400, detail=errores)
+
+        # Verificar que la reserva esté dentro de las próximas 24 horas
+        ahora = datetime.now()
+        fecha_reserva = datetime.combine(reserva.dia, reserva.hora_inicio)
+        if fecha_reserva < ahora or fecha_reserva > ahora + timedelta(hours=24):
+            raise HTTPException(status_code=400, detail="Las reservas solo se pueden hacer entre ahora y las próximas 24 horas.")
+
+        # Verificar que haya al menos un socio
+        if not any(j.tipo_jugador != "No Socio" for j in reserva.jugadores):
+            raise HTTPException(status_code=400, detail="Debe haber al menos un jugador socio para realizar la reserva.")
+
+        # Verificar la cantidad de jugadores según el tipo de pista
+        pista = db.query(models.Pista).filter(models.Pista.id == reserva.pista_id).first()
+        jugadores_completos = [j for j in reserva.jugadores if j.name and j.apellido]
+        if pista.individuales:
+            if len(jugadores_completos) not in [2, 4]:
+                raise HTTPException(status_code=400, detail="Para una pista individual, debe haber 2 o 4 jugadores completos.")
+        else:
+            if len(jugadores_completos) != 4:
+                raise HTTPException(status_code=400, detail="Para una pista no individual, debe haber exactamente 4 jugadores completos.")
+
         # Crear la reserva
         db_reserva = models.Reserva(
             pista_id=reserva.pista_id,
@@ -48,13 +74,16 @@ async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(g
     except ValidationError as ve:
         logger.error(f"Error de validación: {ve.errors()}")
         raise HTTPException(status_code=422, detail=ve.errors())
+    except HTTPException as he:
+        logger.error(f"Error HTTP: {he.detail}")
+        raise he
     except Exception as e:
         db.rollback()
         logger.error(f"Error al crear la reserva: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[schemas.Reserva])
-def read_reservas(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+def read_reservas(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     reservas = crud.get_reservas(db, skip=skip, limit=limit)
     return reservas
 

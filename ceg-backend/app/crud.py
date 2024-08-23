@@ -4,7 +4,7 @@ from app import models, schemas
 from passlib.context import CryptContext
 import bcrypt
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
 import logging
 
 logger = logging.getLogger(__name__)
@@ -228,12 +228,16 @@ def delete_pista(db: Session, pista_id: int):
 def get_reserva(db: Session, reserva_id: int):
     return db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
 
-def get_reservas(db: Session, skip: int = 0, limit: int = 10):
+def get_reservas(db: Session, skip: int = 0, limit: int = 100):
+    today = date.today()
     return db.query(models.Reserva)\
              .options(joinedload(models.Reserva.jugadores))\
+             .filter(models.Reserva.dia >= today)\
+             .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
              .offset(skip)\
              .limit(limit)\
              .all()
+
 
 def create_reserva(db: Session, reserva: schemas.ReservaCreate):
     # Combinar fecha y hora para crear objetos datetime completos

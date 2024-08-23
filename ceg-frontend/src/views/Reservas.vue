@@ -69,7 +69,7 @@ export default {
   },
   data() {
     return {
-      pistas: [], // Lista de pistas
+      pistas: [],
       reserva: {
         pista_id: '',
         dia: '',
@@ -98,7 +98,7 @@ export default {
     'reserva.pista_id': function(newVal) {
       if (newVal) {
         this.reserva.individuales = this.pistaSeleccionada.individuales;
-        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 4 : 4; // Siempre 4 inputs, pero permitimos 2 o 4 jugadores para pistas individuales
+        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 4 : 4;
         this.ajustarJugadores();
       }
     }
@@ -162,7 +162,83 @@ export default {
       ];
       this.jugadoresRequeridos = 4;
     },
+    verificarJugadoresRepetidos() {
+      const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
+      const jugadoresUnicos = new Set(jugadoresCompletos.map(j => `${j.name.toLowerCase()} ${j.apellido.toLowerCase()}`));
+      return jugadoresUnicos.size !== jugadoresCompletos.length ? "Hay jugadores repetidos en la reserva." : null;
+    },
+    verificarTiempoReserva() {
+      const ahora = new Date();
+      const fechaReserva = new Date(`${this.reserva.dia}T${this.reserva.hora_inicio}`);
+      const diferenciaTiempo = fechaReserva - ahora;
+      const horasDiferencia = diferenciaTiempo / (1000 * 60 * 60);
+      return (horasDiferencia < 0 || horasDiferencia > 24) ? "Las reservas solo se pueden hacer entre ahora y las próximas 24 horas." : null;
+    },
+    async verificarSolapamientoJugadores() {
+      const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
+      for (let jugador of jugadoresCompletos) {
+        try {
+          const response = await axios.get(`http://localhost:8000/reservas/verificar_solapamiento_jugador/`, {
+            params: {
+              nombre: jugador.name,
+              apellido: jugador.apellido,
+              dia: this.reserva.dia,
+              hora_inicio: this.reserva.hora_inicio,
+              hora_fin: this.reserva.hora_fin
+            }
+          });
+          if (response.data.solapamiento) {
+            return `El jugador ${jugador.name} ${jugador.apellido} ya tiene una reserva solapada.`;
+          }
+        } catch (error) {
+          console.error("Error al verificar solapamiento de jugador:", error);
+          return "Error al verificar solapamiento de jugadores.";
+        }
+      }
+      return null;
+    },
+    async verificarSolapamientoPista() {
+      try {
+        const response = await axios.get(`http://localhost:8000/reservas/verificar_solapamiento_pista/`, {
+          params: {
+            pista_id: this.reserva.pista_id,
+            dia: this.reserva.dia,
+            hora_inicio: this.reserva.hora_inicio,
+            hora_fin: this.reserva.hora_fin
+          }
+        });
+        return response.data.solapamiento ? "La pista ya está reservada en ese horario." : null;
+      } catch (error) {
+        console.error("Error al verificar solapamiento de pista:", error);
+        return "Error al verificar disponibilidad de la pista.";
+      }
+    },
     async handleSubmit() {
+      // Verificaciones del frontend
+      const errorJugadoresRepetidos = this.verificarJugadoresRepetidos();
+      if (errorJugadoresRepetidos) {
+        alert(errorJugadoresRepetidos);
+        return;
+      }
+
+      const errorTiempoReserva = this.verificarTiempoReserva();
+      if (errorTiempoReserva) {
+        alert(errorTiempoReserva);
+        return;
+      }
+
+      const errorSolapamientoJugadores = await this.verificarSolapamientoJugadores();
+      if (errorSolapamientoJugadores) {
+        alert(errorSolapamientoJugadores);
+        return;
+      }
+
+      const errorSolapamientoPista = await this.verificarSolapamientoPista();
+      if (errorSolapamientoPista) {
+        alert(errorSolapamientoPista);
+        return;
+      }
+
       const tieneSocio = this.jugadores.some(jugador => jugador.tipo_jugador && jugador.tipo_jugador !== 'No Socio');
       if (!tieneSocio) {
         alert("Debe haber al menos un jugador socio para realizar la reserva.");
@@ -185,7 +261,7 @@ export default {
 
       const reservaData = {
         ...this.reserva,
-        jugadores: this.jugadores.map(jugador => ({
+        jugadores: jugadoresCompletos.map(jugador => ({
           name: jugador.name,
           apellido: jugador.apellido,
           tipo_jugador: jugador.tipo_jugador
@@ -200,7 +276,6 @@ export default {
         alert("Reserva guardada con éxito");
         this.handleReset();
         this.fetchPistas();
-        // Redirigir a la página de inicio
         this.router.push('/');
       } catch (error) {
         console.error("Error completo:", error);
