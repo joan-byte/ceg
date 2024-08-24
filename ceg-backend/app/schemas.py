@@ -48,7 +48,7 @@ class JugadorCreate(BaseModel):
     tipo_jugador: str = ""     
 
 class ReservaCreate(ReservaBase):
-    jugadores: List[JugadorCreate] = Field(..., min_items=4, max_items=4)
+    jugadores: List[JugadorCreate] = Field(..., min_items=2, max_items=4)
 
     @validator('jugadores')
     def validate_jugadores(cls, v, values):
@@ -72,6 +72,7 @@ class Reserva(ReservaBase):
 
     class Config:
         from_attributes = True
+
 # Esquemas para la gestión de administradores
 class AdminBase(BaseModel):
     name: str

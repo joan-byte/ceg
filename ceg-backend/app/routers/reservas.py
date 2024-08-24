@@ -1,17 +1,64 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from app import crud, schemas, models
 from pydantic import ValidationError
 from app.database import get_db
 from ..reserva_validations import verificar_reserva
 from typing import List
 import logging
+from datetime import datetime, timedelta, date, time
 
 router = APIRouter()
 
 # Configurar el logger
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+def verificar_solapamiento_jugador(db: Session, nombre: str, apellido: str, dia: date, hora_inicio: time, hora_fin: time):
+    try:
+        solapamiento = db.query(models.Reserva).filter(
+            models.Reserva.dia == dia,
+            models.Reserva.hora_inicio < hora_fin,
+            models.Reserva.hora_fin > hora_inicio,
+            models.Reserva.jugadores.any(
+                and_(
+                    models.Jugador.name == nombre,
+                    models.Jugador.apellido == apellido
+                )
+            )
+        ).first()
+        
+        if solapamiento:
+            return {
+                "solapamiento": True,
+                "mensaje": f"El jugador {nombre} {apellido} ya tiene una reserva solapada el día {dia} entre {solapamiento.hora_inicio} y {solapamiento.hora_fin}."
+            }
+        
+        return {"solapamiento": False, "mensaje": "No hay solapamiento"}
+    except Exception as e:
+        logger.error(f"Error al verificar solapamiento: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno al verificar solapamiento: {str(e)}")
+
+def verificar_solapamiento_pista(db: Session, pista_id: int, dia: date, hora_inicio: time, hora_fin: time):
+    try:
+        solapamiento = db.query(models.Reserva).filter(
+            models.Reserva.pista_id == pista_id,
+            models.Reserva.dia == dia,
+            models.Reserva.hora_inicio < hora_fin,
+            models.Reserva.hora_fin > hora_inicio
+        ).first()
+        
+        if solapamiento:
+            return {
+                "solapamiento": True,
+                "mensaje": f"La pista ya está reservada el día {dia} entre {solapamiento.hora_inicio} y {solapamiento.hora_fin}."
+            }
+        
+        return {"solapamiento": False, "mensaje": "La pista está disponible"}
+    except Exception as e:
+        logger.error(f"Error al verificar solapamiento de pista: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno al verificar solapamiento de pista: {str(e)}")
 
 @router.post("/", response_model=schemas.Reserva)
 async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(get_db)):
@@ -107,3 +154,46 @@ def update_reserva(reserva_id: int, reserva: schemas.ReservaUpdate, db: Session 
     if db_reserva is None:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     return db_reserva
+
+@router.get("/verificar_solapamiento_jugador/")
+def check_solapamiento_jugador(
+    nombre: str,
+    apellido: str,
+    dia: str,
+    hora_inicio: str,
+    hora_fin: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        dia_date = datetime.strptime(dia, "%Y-%m-%d").date()
+        hora_inicio_time = datetime.strptime(hora_inicio, "%H:%M").time()
+        hora_fin_time = datetime.strptime(hora_fin, "%H:%M").time()
+        
+        resultado = verificar_solapamiento_jugador(db, nombre, apellido, dia_date, hora_inicio_time, hora_fin_time)
+        return resultado
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=f"Error en el formato de fecha u hora: {str(ve)}")
+    except Exception as e:
+        logger.error(f"Error inesperado: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+
+@router.get("/verificar_solapamiento_pista/")
+def check_solapamiento_pista(
+    pista_id: int,
+    dia: str,
+    hora_inicio: str,
+    hora_fin: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        dia_date = datetime.strptime(dia, "%Y-%m-%d").date()
+        hora_inicio_time = datetime.strptime(hora_inicio, "%H:%M").time()
+        hora_fin_time = datetime.strptime(hora_fin, "%H:%M").time()
+        
+        resultado = verificar_solapamiento_pista(db, pista_id, dia_date, hora_inicio_time, hora_fin_time)
+        return resultado
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=f"Error en el formato de fecha u hora: {str(ve)}")
+    except Exception as e:
+        logger.error(f"Error inesperado: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")

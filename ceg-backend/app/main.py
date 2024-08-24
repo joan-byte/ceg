@@ -14,11 +14,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting up the application")
-    for route in app.routes:
-        logger.info(f"Route: {route.path}, methods: {route.methods}")
+
 
 # Configuración de CORS
 origins = [

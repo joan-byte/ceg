@@ -83,7 +83,8 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' },
         { name: '', apellido: '', tipo_jugador: '' }
       ],
-      jugadoresRequeridos: 4
+      jugadoresRequeridos: 4,
+      errores: [] // Array para almacenar errores
     };
   },
   computed: {
@@ -98,7 +99,7 @@ export default {
     'reserva.pista_id': function(newVal) {
       if (newVal) {
         this.reserva.individuales = this.pistaSeleccionada.individuales;
-        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 4 : 4;
+        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 2 : 4;
         this.ajustarJugadores();
       }
     }
@@ -110,6 +111,7 @@ export default {
         this.pistas = response.data;
       } catch (error) {
         console.error("Error al obtener las pistas:", error);
+        this.errores.push("Error al obtener las pistas");
       }
     },
     calcularHoraFin() {
@@ -123,6 +125,7 @@ export default {
         this.reserva.hora_fin = fin.toTimeString().slice(0, 5);
       } else {
         console.error("Hora de inicio no válida o pista no seleccionada");
+        this.errores.push("Hora de inicio no válida o pista no seleccionada");
       }
     },
     async verificarJugador(index) {
@@ -137,14 +140,24 @@ export default {
         } catch (error) {
           console.error("Error al verificar el jugador:", error);
           jugador.tipo_jugador = 'Error';
+          this.errores.push(`Error al verificar el jugador ${jugador.name} ${jugador.apellido}`);
         }
       }
     },
     ajustarJugadores() {
-      while (this.jugadores.length < 4) {
-        this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+      if (this.pistaSeleccionada.individuales) {
+        while (this.jugadores.length > 2 && this.jugadores.every(j => !j.name && !j.apellido)) {
+          this.jugadores.pop();
+        }
+        while (this.jugadores.length < 4) {
+          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+        }
+      } else {
+        while (this.jugadores.length < 4) {
+          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+        }
+        this.jugadores = this.jugadores.slice(0, 4);
       }
-      this.jugadores = this.jugadores.slice(0, 4);
     },
     handleReset() {
       this.reserva = {
@@ -161,6 +174,7 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' }
       ];
       this.jugadoresRequeridos = 4;
+      this.errores = []; // Limpiar errores al resetear
     },
     verificarJugadoresRepetidos() {
       const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
@@ -188,11 +202,15 @@ export default {
             }
           });
           if (response.data.solapamiento) {
-            return `El jugador ${jugador.name} ${jugador.apellido} ya tiene una reserva solapada.`;
+            return response.data.mensaje;
           }
         } catch (error) {
           console.error("Error al verificar solapamiento de jugador:", error);
-          return "Error al verificar solapamiento de jugadores.";
+          if (error.response) {
+            return `Error al verificar solapamiento: ${error.response.data.detail || error.message}`;
+          } else {
+            return "Error de conexión al verificar solapamiento de jugadores.";
+          }
         }
       }
       return null;
@@ -207,56 +225,64 @@ export default {
             hora_fin: this.reserva.hora_fin
           }
         });
-        return response.data.solapamiento ? "La pista ya está reservada en ese horario." : null;
+        if (response.data.solapamiento) {
+          return response.data.mensaje;
+        }
+        return null;
       } catch (error) {
         console.error("Error al verificar solapamiento de pista:", error);
-        return "Error al verificar disponibilidad de la pista.";
+        if (error.response) {
+          return `Error al verificar disponibilidad: ${error.response.data.detail || error.message}`;
+        } else {
+          return "Error al verificar disponibilidad de la pista.";
+        }
       }
     },
     async handleSubmit() {
+      this.errores = []; // Limpiar errores anteriores
+
       // Verificaciones del frontend
       const errorJugadoresRepetidos = this.verificarJugadoresRepetidos();
       if (errorJugadoresRepetidos) {
-        alert(errorJugadoresRepetidos);
-        return;
+        this.errores.push(errorJugadoresRepetidos);
       }
 
       const errorTiempoReserva = this.verificarTiempoReserva();
       if (errorTiempoReserva) {
-        alert(errorTiempoReserva);
-        return;
+        this.errores.push(errorTiempoReserva);
       }
 
       const errorSolapamientoJugadores = await this.verificarSolapamientoJugadores();
       if (errorSolapamientoJugadores) {
-        alert(errorSolapamientoJugadores);
-        return;
+        this.errores.push(errorSolapamientoJugadores);
       }
 
       const errorSolapamientoPista = await this.verificarSolapamientoPista();
       if (errorSolapamientoPista) {
-        alert(errorSolapamientoPista);
-        return;
+        this.errores.push(errorSolapamientoPista);
       }
 
       const tieneSocio = this.jugadores.some(jugador => jugador.tipo_jugador && jugador.tipo_jugador !== 'No Socio');
       if (!tieneSocio) {
-        alert("Debe haber al menos un jugador socio para realizar la reserva.");
-        return;
+        this.errores.push("Debe haber al menos un jugador socio para realizar la reserva.");
       }
 
       const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
 
       if (this.pistaSeleccionada.individuales) {
         if (jugadoresCompletos.length !== 2 && jugadoresCompletos.length !== 4) {
-          alert("Para una pista individual, debe haber 2 o 4 jugadores completos.");
-          return;
+          this.errores.push("Para una pista individual, debe haber 2 o 4 jugadores completos.");
         }
       } else {
         if (jugadoresCompletos.length !== 4) {
-          alert("Para una pista no individual, debe haber exactamente 4 jugadores completos.");
-          return;
+          this.errores.push("Para una pista no individual, debe haber exactamente 4 jugadores completos.");
         }
+      }
+
+      if (this.errores.length > 0) {
+        // Mostrar errores al usuario
+        alert(this.errores.join("\n"));
+        return;
       }
 
       const reservaData = {
