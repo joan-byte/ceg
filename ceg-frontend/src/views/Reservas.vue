@@ -36,11 +36,11 @@
       <div v-for="(jugador, index) in jugadoresFormateados" :key="index" class="flex mb-4">
         <div class="w-1/3 pr-2">
           <label :for="'jugador' + index + '_name'" class="block text-gray-700">Nombre Jugador {{ index + 1 }}:</label>
-          <input type="text" :id="'jugador' + index + '_name'" :name="'jugador' + index + '_name'" v-model="jugador.name" @blur="verificarJugador(index)" placeholder="Nombre" class="w-full p-2 border rounded" :disabled="index >= jugadoresRequeridos">
+          <input type="text" :id="'jugador' + index + '_name'" :name="'jugador' + index + '_name'" v-model="jugador.name" @blur="verificarJugador(index)" placeholder="Nombre" class="w-full p-2 border rounded">
         </div>
         <div class="w-1/3 px-2">
           <label :for="'jugador' + index + '_apellido'" class="block text-gray-700">Apellido Jugador {{ index + 1 }}:</label>
-          <input type="text" :id="'jugador' + index + '_apellido'" :name="'jugador' + index + '_apellido'" v-model="jugador.apellido" @blur="verificarJugador(index)" placeholder="Apellido" class="w-full p-2 border rounded" :disabled="index >= jugadoresRequeridos">
+          <input type="text" :id="'jugador' + index + '_apellido'" :name="'jugador' + index + '_apellido'" v-model="jugador.apellido" @blur="verificarJugador(index)" placeholder="Apellido" class="w-full p-2 border rounded">
         </div>
         <div class="w-1/3 pl-2">
           <label :for="'jugador' + index + '_tipo'" class="block text-gray-700">Tipo de Jugador {{ index + 1 }}:</label>
@@ -83,7 +83,6 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' },
         { name: '', apellido: '', tipo_jugador: '' }
       ],
-      jugadoresRequeridos: 4,
       errores: [] // Array para almacenar errores
     };
   },
@@ -99,8 +98,6 @@ export default {
     'reserva.pista_id': function(newVal) {
       if (newVal) {
         this.reserva.individuales = this.pistaSeleccionada.individuales;
-        this.jugadoresRequeridos = this.pistaSeleccionada.individuales ? 2 : 4;
-        this.ajustarJugadores();
       }
     }
   },
@@ -144,21 +141,6 @@ export default {
         }
       }
     },
-    ajustarJugadores() {
-      if (this.pistaSeleccionada.individuales) {
-        while (this.jugadores.length > 2 && this.jugadores.every(j => !j.name && !j.apellido)) {
-          this.jugadores.pop();
-        }
-        while (this.jugadores.length < 4) {
-          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
-        }
-      } else {
-        while (this.jugadores.length < 4) {
-          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
-        }
-        this.jugadores = this.jugadores.slice(0, 4);
-      }
-    },
     handleReset() {
       this.reserva = {
         pista_id: '',
@@ -173,7 +155,6 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' },
         { name: '', apellido: '', tipo_jugador: '' }
       ];
-      this.jugadoresRequeridos = 4;
       this.errores = []; // Limpiar errores al resetear
     },
     verificarJugadoresRepetidos() {

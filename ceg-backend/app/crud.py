@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
+from app.models import Socio, Admin
+from app.security import verify_password
 from sqlalchemy import and_
 from app import models, schemas
 from passlib.context import CryptContext
@@ -11,6 +13,22 @@ logger = logging.getLogger(__name__)
 
 # Configuración para el hashing de contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def authenticate_admin(db: Session, name: str, password: str):
+    admin = db.query(Admin).filter(Admin.name == name).first()
+    if not admin:
+        return None
+    if not verify_password(password, admin.hashed_password):
+        return None
+    return admin
+
+def authenticate_socio(db: Session, email: str, password: str):
+    socio = db.query(Socio).filter(Socio.email == email).first()
+    if not socio:
+        return None
+    if not verify_password(password, socio.hashed_password):
+        return None
+    return socio
 
 # Función para verificar si la contraseña coincide con el hash almacenado
 def verify_password(plain_password, hashed_password):

@@ -6,7 +6,11 @@ class Admin(Base):
     __tablename__ = "admins"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    password = Column(String)
+    hashed_password = Column(String)
+    email = Column(String, unique=True, index=True)
+    refresh_token = Column(String, nullable=True)
+    created_at = Column(DateTime)
+    last_login = Column(DateTime, nullable=True)
 
 class Socio(Base):
     __tablename__ = "socios"
@@ -16,8 +20,11 @@ class Socio(Base):
     lastname = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     phone = Column(String, index=True)
-    password = Column(String)
+    hashed_password = Column(String)
     type = Column(String, index=True)
+    refresh_token = Column(String, nullable=True)
+    created_at = Column(DateTime)
+    last_login = Column(DateTime, nullable=True)
 
 class Jugador(Base):
     __tablename__ = "jugadores"
@@ -51,4 +58,3 @@ class Reserva(Base):
     # Relaciones
     pista = relationship("Pista", back_populates="reservas")
     jugadores = relationship("Jugador", back_populates="reserva", cascade="all, delete-orphan")
-

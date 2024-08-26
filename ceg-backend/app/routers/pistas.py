@@ -1,52 +1,60 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from app import crud, models, schemas
+from app.auth import get_current_admin  # Importación correcta
+from app import crud, schemas, models
 from app.database import get_db
-import logging
-
 
 router = APIRouter()
 
-logger = logging.getLogger(__name__)
-
+# Ruta para que los administradores creen una nueva pista
 @router.post("/", response_model=schemas.Pista)
-def create_pista(pista: schemas.PistaCreate, db: Session = Depends(get_db)):
+def create_pista(
+    pista: schemas.PistaCreate,
+    db: Session = Depends(get_db),
+    current_admin: schemas.Admin = Depends(get_current_admin)
+):
     return crud.create_pista(db=db, pista=pista)
 
-@router.get("/", response_model=List[schemas.Pista])
-def read_pistas(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    pistas = crud.get_pistas(db, skip=skip, limit=limit)
-    return pistas
-
-@router.get("/{pista_id}", response_model=schemas.Pista)
-def read_pista(pista_id: int, db: Session = Depends(get_db)):
+# Ruta para que los administradores actualicen una pista existente
+@router.put("/{pista_id}", response_model=schemas.Pista)
+def update_pista(
+    pista_id: int,
+    pista: schemas.PistaUpdate,
+    db: Session = Depends(get_db),
+    current_admin: schemas.Admin = Depends(get_current_admin)
+):
     db_pista = crud.get_pista(db, pista_id=pista_id)
     if db_pista is None:
         raise HTTPException(status_code=404, detail="Pista not found")
-    return db_pista
+    return crud.update_pista(db=db, pista_id=pista_id, pista=pista)
 
-@router.put("/{pista_id}", response_model=schemas.Pista)
-def update_pista(pista_id: int, pista: schemas.PistaUpdate, db: Session = Depends(get_db)):
-    logger.info(f"Attempting to update pista: {pista_id}")
-    db_pista = crud.update_pista(db, pista_id, pista)
-    if db_pista is None:
-        logger.warning(f"Pista not found: {pista_id}")
+# Ruta para que los administradores eliminen una pista
+@router.delete("/{pista_id}", response_model=dict)
+def delete_pista(pista_id: int, db: Session = Depends(get_db), current_admin: models.Admin = Depends(get_current_admin)):
+    db_pista = crud.get_pista(db, pista_id=pista_id)
+    if not db_pista:
         raise HTTPException(status_code=404, detail="Pista not found")
-    logger.info(f"Pista updated successfully: {pista_id}")
-    return db_pista
+    success = crud.delete_pista(db=db, pista_id=pista_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to delete the pista")
+    return {"status": "success"}
 
-@router.delete("/{pista_id}")
-def delete_pista(pista_id: int, db: Session = Depends(get_db)):
-    try:
-        logger.info(f"Received DELETE request for pista: {pista_id}")
-        result = crud.delete_pista(db, pista_id)
-        if result:
-            logger.info(f"Pista {pista_id} deleted successfully")
-            return {"message": "Pista deleted successfully"}
-        else:
-            logger.warning(f"Pista {pista_id} not found")
-            raise HTTPException(status_code=404, detail="Pista not found")
-    except Exception as e:
-        logger.error(f"Error deleting pista {pista_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Ruta para obtener la lista de pistas (accesible para todos)
+@router.get("/", response_model=List[schemas.Pista])
+def read_pistas(
+    db: Session = Depends(get_db)
+):
+    pistas = crud.get_pistas(db)
+    return pistas
+
+# Ruta para obtener detalles de una pista específica (accesible para todos)
+@router.get("/{pista_id}", response_model=schemas.Pista)
+def read_pista(
+    pista_id: int,
+    db: Session = Depends(get_db)
+):
+    pista = crud.get_pista(db, pista_id=pista_id)
+    if pista is None:
+        raise HTTPException(status_code=404, detail="Pista not found")
+    return pista

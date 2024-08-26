@@ -2,6 +2,16 @@ from datetime import date, time, datetime
 from pydantic import BaseModel, validator, Field
 from typing import List, Optional
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    role: Optional[str] = None
+
+
+
 # Esquema para manejar los datos básicos de un jugador en una reserva
 class JugadorReserva(BaseModel):
     name: str
@@ -76,9 +86,7 @@ class Reserva(ReservaBase):
 # Esquemas para la gestión de administradores
 class AdminBase(BaseModel):
     name: str
-
-    class Config:
-        from_attributes = True
+    email: Optional[str] = None
 
 class AdminCreate(AdminBase):
     password: str
@@ -90,18 +98,15 @@ class Admin(AdminBase):
     id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Esquemas para la gestión de socios
 class SocioBase(BaseModel):
     name: str
     lastname: str
-    email: str
-    phone: str
+    email: Optional [str] = None
+    phone: Optional [str] = None
     type: str
-
-    class Config:
-        from_attributes = True
 
 class SocioCreate(SocioBase):
     password: str
@@ -113,7 +118,7 @@ class Socio(SocioBase):
     id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Esquemas para la gestión de pistas
 class PistaBase(BaseModel):
