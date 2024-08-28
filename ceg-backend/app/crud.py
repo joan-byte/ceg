@@ -63,7 +63,8 @@ def get_admins(db: Session, skip: int = 0, limit: int = 10):
 def create_admin(db: Session, admin: schemas.AdminCreate):
     try:
         hashed_password = get_password_hash(admin.password)
-        db_admin = models.Admin(name=admin.name, password=hashed_password)
+        # Corregir el nombre del campo a hashed_password
+        db_admin = models.Admin(name=admin.name, hashed_password=hashed_password)
         db.add(db_admin)
         db.commit()
         db.refresh(db_admin)
@@ -78,9 +79,14 @@ def update_admin(db: Session, admin_id: int, admin: schemas.AdminUpdate):
     try:
         db_admin = db.query(models.Admin).filter(models.Admin.id == admin_id).first()
         if db_admin:
-            db_admin.name = admin.name
-            if admin.password:
-                db_admin.password = get_password_hash(admin.password)
+            # Actualizar todos los campos proporcionados
+            update_data = admin.dict(exclude_unset=True)
+            for key, value in update_data.items():
+                if key == 'password':
+                    db_admin.hashed_password = get_password_hash(value)
+                elif hasattr(db_admin, key):
+                    setattr(db_admin, key, value)
+            
             db.commit()
             db.refresh(db_admin)
             logger.info(f"Admin updated successfully: {db_admin.id}")
@@ -91,7 +97,7 @@ def update_admin(db: Session, admin_id: int, admin: schemas.AdminUpdate):
     except SQLAlchemyError as e:
         db.rollback()
         logger.error(f"Error updating admin: {str(e)}")
-        return None
+        raise  # Re-raise the exception to be handled by the router
 
 def delete_admin(db: Session, admin_id: int):
     try:

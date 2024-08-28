@@ -91,14 +91,17 @@ class AdminBase(BaseModel):
 class AdminCreate(AdminBase):
     password: str
 
-class AdminUpdate(AdminBase):
+class AdminUpdate(BaseModel):
+    name: Optional[str] = None  # Hacer opcional el campo `name`
+    email: Optional[str] = None
     password: Optional[str] = None
 
 class Admin(AdminBase):
     id: int
+    hashed_password: str  # Añadir este campo para incluir la contraseña cifrada en la respuesta
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Esquemas para la gestión de socios
 class SocioBase(BaseModel):
@@ -118,7 +121,7 @@ class Socio(SocioBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Esquemas para la gestión de pistas
 class PistaBase(BaseModel):

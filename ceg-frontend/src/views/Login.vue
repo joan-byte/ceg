@@ -4,18 +4,20 @@
     <form @submit.prevent="login">
       <div>
         <label for="role">Selecciona tu rol:</label>
-        <select v-model="role" id="role">
+        <select v-model="role" id="role" autocomplete="off">
           <option value="socio">Socio</option>
           <option value="admin">Administrador</option>
         </select>
       </div>
       <div>
-        <label for="email">Email/Nombre:</label>
-        <input v-model="username" type="text" id="email" required />
+        <label for="username">Email/Nombre:</label>
+        <!-- Añadir el atributo autocomplete adecuado -->
+        <input v-model="username" type="text" id="username" required autocomplete="username" />
       </div>
       <div>
         <label for="password">Password:</label>
-        <input v-model="password" type="password" id="password" required />
+        <!-- Añadir el atributo autocomplete adecuado -->
+        <input v-model="password" type="password" id="password" required autocomplete="current-password" />
       </div>
       <button type="submit" :disabled="isLoading">{{ isLoading ? 'Cargando...' : 'Login' }}</button>
     </form>
@@ -52,6 +54,9 @@ export default {
         const tokenResponse = await axios.post(tokenUrl, formData);
         const token = tokenResponse.data.access_token;
         localStorage.setItem('token', token);
+
+        // Guardar el rol del usuario en localStorage
+        localStorage.setItem('userRole', this.role);
 
         const userUrl = this.role === 'admin'
           ? 'http://localhost:8000/admin/me'

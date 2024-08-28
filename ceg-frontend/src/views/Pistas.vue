@@ -4,12 +4,12 @@
     <form @submit.prevent="submitForm" class="mb-8">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700">Nombre de la Pista</label>
-          <input v-model="form.name" type="text" class="mt-1 block w-full" required />
+          <label for="name" class="block text-sm font-medium text-gray-700">Nombre de la Pista</label>
+          <input id="name" name="name" v-model="form.name" type="text" class="mt-1 block w-full" required autocomplete="off" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Tipo de Pista</label>
-          <select v-model="form.tipo_pista" class="mt-1 block w-full" required>
+          <label for="tipo_pista" class="block text-sm font-medium text-gray-700">Tipo de Pista</label>
+          <select id="tipo_pista" name="tipo_pista" v-model="form.tipo_pista" class="mt-1 block w-full" required autocomplete="off">
             <option disabled value="">Elige un tipo de pista</option>
             <option value="Tenis">Tenis</option>
             <option value="Padel">Padel</option>
@@ -17,12 +17,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Tiempo de Juego (minutos)</label>
-          <input v-model="form.tiempo_juego" type="number" min="1" class="mt-1 block w-full" required />
+          <label for="tiempo_juego" class="block text-sm font-medium text-gray-700">Tiempo de Juego (minutos)</label>
+          <input id="tiempo_juego" name="tiempo_juego" v-model="form.tiempo_juego" type="number" min="1" class="mt-1 block w-full" required autocomplete="off" />
         </div>
         <div class="flex items-center">
-          <label class="block text-sm font-medium text-gray-700 mr-2">Permite Individuales</label>
-          <input v-model="form.individuales" type="checkbox" class="mt-1" />
+          <input id="individuales" name="individuales" v-model="form.individuales" type="checkbox" class="mt-1" />
+          <label for="individuales" class="block text-sm font-medium text-gray-700 ml-2">Permite Individuales</label>
         </div>
       </div>
       <div class="mt-6">
@@ -37,8 +37,8 @@
         <p>Tipo: {{ pista.tipo_pista }}</p>
         <p>Tiempo de Juego: {{ pista.tiempo_juego }} minutos</p>
         <p>Permite Individuales: {{ pista.individuales ? 'Sí' : 'No' }}</p>
-        <div class="flex justify-between mt-4">
-          <button @click="editPista(pista)" class="px-4 py-1 bg-green-500 text-white rounded">Editar</button>
+        <div class="flex space-x-2 mt-4"> <!-- Contenedor de botones con separación entre ellos -->
+          <button @click="editPista(pista)" class="px-4 py-1 bg-green-500 text-white rounded">Modificar</button>
           <button @click="deletePista(pista.id)" class="px-4 py-1 bg-red-500 text-white rounded">Eliminar</button>
         </div>
       </div>
@@ -141,3 +141,10 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.container {
+  max-width: 800px;
+}
+/* Mantén los estilos existentes o añade más aquí según sea necesario */
+</style>
