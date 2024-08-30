@@ -25,11 +25,13 @@ oauth2_scheme_socio = OAuth2PasswordBearer(tokenUrl="token_socio")
 oauth2_scheme_admin = OAuth2PasswordBearer(tokenUrl="token_admin")
 
 def create_admin_token(admin: models.Admin) -> str:
-    token_data = {"sub": admin.name, "role": "admin"}
+    # Utiliza 'sub' para almacenar el identificador único del administrador
+    token_data = {"sub": admin.name, "role": "admin"}  # Aquí 'sub' es el nombre del administrador
     return create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 def create_socio_token(socio: models.Socio) -> str:
-    token_data = {"sub": socio.email, "role": "socio"}
+    # Utiliza 'sub' para almacenar el identificador único del socio
+    token_data = {"sub": socio.email, "role": "socio"}  # Aquí 'sub' es el email del socio
     return create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -102,14 +104,18 @@ async def get_current_socio(db: Session = Depends(get_db), token: str = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        # Decodifica el token JWT y obtiene 'sub' como el identificador principal
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        sub: str = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-        token_data = schemas.TokenData(email=email)
+        # Crea el objeto TokenData con 'sub'
+        token_data = schemas.TokenData(sub=sub)
     except JWTError:
         raise credentials_exception
-    socio = crud.get_socio_by_email(db, email=token_data.email)
+    
+    # Busca al socio utilizando 'sub' como identificador
+    socio = crud.get_socio_by_email(db, email=token_data.sub)  # Ajusta esta línea según el identificador utilizado como 'sub'
     if socio is None:
         raise credentials_exception
     return socio
@@ -122,14 +128,18 @@ async def get_current_admin(db: Session = Depends(get_db), token: str = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        # Decodifica el token JWT y obtiene 'sub' como el identificador principal
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        sub: str = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
+        # Crea el objeto TokenData con 'sub'
+        token_data = schemas.TokenData(sub=sub)
     except JWTError:
         raise credentials_exception
-    admin = crud.get_admin_by_name(db, name=token_data.username)
+    
+    # Busca al administrador utilizando 'sub' como identificador
+    admin = crud.get_admin_by_name(db, name=token_data.sub)  # Ajusta esta línea según el identificador utilizado como 'sub'
     if admin is None:
         raise credentials_exception
     return admin

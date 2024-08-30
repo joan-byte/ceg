@@ -132,15 +132,14 @@ def get_socios(db: Session, skip: int = 0, limit: int = 10):
 
 def create_socio(db: Session, socio: schemas.SocioCreate):
     try:
-        hashed_password = get_password_hash(socio.password)
         db_socio = models.Socio(
-            name=socio.name,
-            lastname=socio.lastname,
-            email=socio.email,
-            phone=socio.phone,
-            type=socio.type,
-            password=hashed_password
-        )
+        name=socio.name,
+        lastname=socio.lastname,
+        email=socio.email,
+        phone=socio.phone,
+        password=hash_password(socio.password),  # Asegúrate de usar hashed_password en lugar de password
+        type=socio.type
+    )
         db.add(db_socio)
         db.commit()
         db.refresh(db_socio)

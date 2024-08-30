@@ -23,7 +23,7 @@ app.add_middleware(
 # Incluir los routers con protección adecuada para admin y socios
 app.include_router(auth_router)  # Incluye el router de auth para registrar la ruta /token
 app.include_router(admin.router, prefix="/admin", dependencies=[Depends(get_current_admin)])
-app.include_router(socios.router, prefix="/socios", dependencies=[Depends(get_current_socio)])
+app.include_router(socios.router, prefix="/socios", dependencies=[Depends(get_current_admin)])
 app.include_router(jugadores.router, prefix="/jugadores")
 app.include_router(pistas.router, prefix="/pistas")
 app.include_router(reservas.router, prefix="/reservas")

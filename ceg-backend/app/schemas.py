@@ -7,8 +7,8 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
-    role: Optional[str] = None
+    sub: Optional[str] = None  # Este será el identificador principal (puede ser username, email, etc.)
+    role: Optional[str] = None  # Opcional si todavía necesitas roles
 
 
 
