@@ -300,28 +300,64 @@ def create_jugador(db: Session, jugador: schemas.JugadorCreate):
     return db_jugador
 
 def update_reserva(db: Session, reserva_id: int, reserva: schemas.ReservaUpdate):
-    db_reserva = get_reserva(db, reserva_id)
-    if not db_reserva:
-        raise ValueError(f"Reserva con ID {reserva_id} no encontrada")
+    try:
+        db_reserva = get_reserva(db, reserva_id)
+        if not db_reserva:
+            raise ValueError(f"Reserva con ID {reserva_id} no encontrada")
 
-    for key, value in reserva.dict(exclude={'jugadores'}).items():
-        setattr(db_reserva, key, value)
+        # Iniciar transacción
+        with db.begin():
+            # Actualizar campos de la reserva
+            update_data = reserva.dict(exclude={'jugadores'})
+            for key, value in update_data.items():
+                if getattr(db_reserva, key) != value:
+                    setattr(db_reserva, key, value)
 
-    db.query(models.Jugador).filter(models.Jugador.reserva_id == reserva_id).delete()
+            # Actualizar fecha y hora de manera consistente con create_reserva
+            fecha = reserva.dia
+            db_reserva.hora_inicio = datetime.combine(fecha, reserva.hora_inicio)
+            db_reserva.hora_fin = datetime.combine(fecha, reserva.hora_fin)
 
-    for jugador in reserva.jugadores:
-        socio = get_socio_by_name_and_lastname(db, jugador.name, jugador.apellido)
-        tipo_jugador = socio.type if socio else "No Socio"
-        db_jugador = models.Jugador(
-            name=jugador.name,
-            apellido=jugador.apellido,
-            tipo_jugador=tipo_jugador,
-            reserva_id=db_reserva.id
-        )
-        db.add(db_jugador)
+            # Manejar jugadores
+            jugadores_actuales = {(j.name, j.apellido): j for j in db_reserva.jugadores}
+            jugadores_nuevos = {(j.name, j.apellido): j for j in reserva.jugadores}
 
-    db.flush()
-    return db_reserva
+            # Eliminar jugadores que ya no están en la reserva
+            for key in set(jugadores_actuales.keys()) - set(jugadores_nuevos.keys()):
+                db.delete(jugadores_actuales[key])
+
+            # Actualizar o crear jugadores
+            for key, jugador_nuevo in jugadores_nuevos.items():
+                if key in jugadores_actuales:
+                    jugador_actual = jugadores_actuales[key]
+                    # Actualizar tipo_jugador si es necesario
+                    if jugador_actual.tipo_jugador != jugador_nuevo.tipo_jugador:
+                        jugador_actual.tipo_jugador = jugador_nuevo.tipo_jugador
+                else:
+                    # Crear nuevo jugador
+                    db_jugador = models.Jugador(
+                        name=jugador_nuevo.name,
+                        apellido=jugador_nuevo.apellido,
+                        tipo_jugador=jugador_nuevo.tipo_jugador,
+                        reserva_id=db_reserva.id
+                    )
+                    db.add(db_jugador)
+
+            db.flush()
+            db.refresh(db_reserva)
+
+        return db_reserva
+    except ValueError as ve:
+        logger.error(f"Error de validación al actualizar reserva: {str(ve)}")
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Error de base de datos al actualizar reserva: {str(e)}")
+        db.rollback()
+        raise
+    except Exception as e:
+        logger.error(f"Error inesperado al actualizar reserva: {str(e)}")
+        db.rollback()
+        raise
 
 def delete_reserva(db: Session, reserva_id: int):
     db_reserva = get_reserva(db, reserva_id)

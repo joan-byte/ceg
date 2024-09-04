@@ -153,3 +153,10 @@ async def get_current_socio_me(current_socio: models.Socio = Depends(get_current
 @router.get("/admin/me", response_model=schemas.Admin)
 async def get_current_admin_me(current_admin: models.Admin = Depends(get_current_admin)):
     return current_admin
+@router.get("/admin/check-role")
+async def check_admin_role(current_admin: models.Admin = Depends(get_current_admin)):
+    return {
+        "is_admin": True,
+        "role": "admin",
+        "username": current_admin.name
+    }

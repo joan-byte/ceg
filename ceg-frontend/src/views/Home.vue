@@ -1,8 +1,17 @@
 <template>
-  <div class="container mx-auto px-4">
+  <div class="container mx-auto px-4 mt-8">
     <h1 class="text-3xl font-bold mb-6">Reservas próximas 24 horas</h1>
-    <div v-if="error" class="text-red-500 mb-4">{{ error }}</div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+      <strong class="font-bold">Error:</strong>
+      <span class="block sm:inline">{{ error }}</span>
+    </div>
+    <div v-if="isLoading" class="text-center py-4">
+      <p>Cargando reservas...</p>
+    </div>
+    <div v-else-if="Object.keys(reservasAgrupadasPorPista).length === 0" class="text-center py-4">
+      <p>No hay reservas disponibles en las próximas 24 horas.</p>
+    </div>
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <div v-for="(pistaReservas, pistaId) in reservasAgrupadasPorPista" :key="pistaId" class="mb-6">
         <h2 class="text-xl font-semibold mb-3">{{ getNombrePista(pistaId) }}</h2>
         <div v-for="reserva in pistaReservas" :key="reserva.id" class="bg-white shadow-md rounded-lg p-4 mb-4">
@@ -14,30 +23,60 @@
           <div v-for="jugador in reserva.jugadores" :key="jugador.id" class="text-sm">
             {{ jugador.name }} {{ jugador.apellido }} ({{ jugador.tipo_jugador }})
           </div>
+          <div v-if="isAdmin" class="mt-4 flex space-x-2">
+            <button @click="editReserva(reserva)" class="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600">Modificar</button>
+            <button @click="deleteReserva(reserva.id)" class="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600">Eliminar</button>
+          </div>
         </div>
       </div>
+    </div>
+    <div class="mt-4 text-sm">
+      Estado de admin: {{ isAdmin ? 'Administrador' : 'No administrador' }}
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
+import { useRouter } from 'vue-router';
 
 export default {
   setup() {
     const reservas = ref([]);
     const pistas = ref({});
     const error = ref(null);
+    const isLoading = ref(true);
+    const isAdmin = ref(false);
+    const router = useRouter();
+
+    const checkAdminStatus = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await axios.get('http://localhost:8000/admin/check-role', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          isAdmin.value = response.data.is_admin;
+          console.log('Estado de admin:', isAdmin.value);
+        } catch (err) {
+          console.error('Error al verificar el estado de admin:', err);
+          isAdmin.value = false;
+        }
+      } else {
+        isAdmin.value = false;
+      }
+    };
 
     const fetchReservas = async () => {
       try {
         const response = await axios.get('http://localhost:8000/reservas/');
         reservas.value = response.data;
-        console.log('Datos de reservas recibidos:', response.data);
       } catch (err) {
         console.error('Error al obtener las reservas:', err);
         error.value = 'Error al cargar las reservas. Por favor, intente más tarde.';
+      } finally {
+        isLoading.value = false;
       }
     };
 
@@ -48,7 +87,6 @@ export default {
           acc[pista.id] = pista.name;
           return acc;
         }, {});
-        console.log('Datos de pistas recibidos:', pistas.value);
       } catch (err) {
         console.error('Error al obtener las pistas:', err);
         error.value = 'Error al cargar las pistas. Por favor, intente más tarde.';
@@ -56,6 +94,8 @@ export default {
     };
 
     const reservasAgrupadasPorPista = computed(() => {
+      if (!reservas.value.length) return {};
+      
       const ahora = new Date();
       const en24Horas = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
       
@@ -63,7 +103,6 @@ export default {
         const fechaHoraInicio = new Date(reserva.dia + 'T' + reserva.hora_inicio);
         const fechaHoraFin = new Date(reserva.dia + 'T' + reserva.hora_fin);
         
-        // Incluir reservas en curso o que comienzan en las próximas 24 horas
         return (fechaHoraInicio <= ahora && fechaHoraFin > ahora) || 
                (fechaHoraInicio > ahora && fechaHoraInicio < en24Horas);
       });
@@ -77,7 +116,6 @@ export default {
         agrupadas[pistaId].push(reserva);
       });
 
-      // Ordenar las reservas por fecha y hora dentro de cada pista
       for (let pista in agrupadas) {
         agrupadas[pista].sort((a, b) => {
           const dateA = new Date(a.dia + 'T' + a.hora_inicio);
@@ -106,12 +144,42 @@ export default {
     };
 
     const formatTime = (timeString) => {
-      return timeString.slice(0, 5); // Asumiendo que el formato es "HH:MM:SS"
+      return timeString.slice(0, 5);
+    };
+
+    const editReserva = (reserva) => {
+      if (isAdmin.value) {
+        router.push({ name: 'EditarReserva', params: { id: reserva.id } });
+      }
+    };
+
+    const deleteReserva = async (reservaId) => {
+      if (isAdmin.value && confirm('¿Está seguro de que desea eliminar esta reserva?')) {
+        try {
+          const token = localStorage.getItem('token');
+          await axios.delete(`http://localhost:8000/reservas/${reservaId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          await fetchReservas();
+        } catch (err) {
+          console.error('Error al eliminar la reserva:', err);
+          error.value = 'Error al eliminar la reserva. Por favor, intente nuevamente.';
+          if (err.response && err.response.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            isAdmin.value = false;
+          }
+        }
+      }
     };
 
     onMounted(async () => {
-      await fetchPistas();
-      await fetchReservas();
+      await checkAdminStatus();
+      await Promise.all([fetchPistas(), fetchReservas()]);
+    });
+
+    watch(isAdmin, (newValue) => {
+      console.log('isAdmin cambió a:', newValue);
     });
 
     return {
@@ -121,6 +189,10 @@ export default {
       formatDate,
       formatTime,
       error,
+      isLoading,
+      isAdmin,
+      editReserva,
+      deleteReserva
     };
   }
 };
