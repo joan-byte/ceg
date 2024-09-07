@@ -1,6 +1,6 @@
 <template>
   <div class="form-container">
-    <h1 class="text-3xl font-bold mb-6">Reserva Pista</h1>
+    <h1 class="text-3xl font-bold mb-6">{{ isEditing ? 'Modificar Reserva' : 'Reserva Pista' }}</h1>
 
     <form @submit.prevent="handleSubmit">
       <!-- Primera fila: Selección de pista y fecha -->
@@ -50,8 +50,10 @@
 
       <!-- Botones -->
       <div class="flex justify-between">
-        <button type="submit" class="bg-blue-500 text-white p-2 rounded w-full mr-2">Guardar</button>
-        <button type="button" @click="handleReset" class="bg-gray-500 text-white p-2 rounded w-full">Cancelar</button>
+        <button type="submit" class="bg-blue-500 text-white p-2 rounded w-full mr-2">
+          {{ isEditing ? 'Modificar' : 'Guardar' }}
+        </button>
+        <button type="button" @click="handleCancel" class="bg-gray-500 text-white p-2 rounded w-full">Cancelar</button>
       </div>
     </form>
   </div>
@@ -60,15 +62,18 @@
 <script>
 import axios from 'axios';
 import '../styles/reservas.css';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 export default {
   setup() {
     const router = useRouter();
-    return { router };
+    const route = useRoute();
+    return { router, route };
   },
   data() {
     return {
+      isEditing: false,
+      reservaId: null,
       pistas: [],
       reserva: {
         pista_id: '',
@@ -83,7 +88,8 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' },
         { name: '', apellido: '', tipo_jugador: '' }
       ],
-      errores: [] // Array para almacenar errores
+      errores: [],
+      isAdmin: false
     };
   },
   computed: {
@@ -155,7 +161,11 @@ export default {
         { name: '', apellido: '', tipo_jugador: '' },
         { name: '', apellido: '', tipo_jugador: '' }
       ];
-      this.errores = []; // Limpiar errores al resetear
+      this.errores = [];
+    },
+    handleCancel() {
+      this.handleReset();
+      this.router.push('/');
     },
     verificarJugadoresRepetidos() {
       const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
@@ -163,47 +173,51 @@ export default {
       return jugadoresUnicos.size !== jugadoresCompletos.length ? "Hay jugadores repetidos en la reserva." : null;
     },
     verificarTiempoReserva() {
+      if (this.isEditing) return null;
       const ahora = new Date();
       const fechaReserva = new Date(`${this.reserva.dia}T${this.reserva.hora_inicio}`);
       const diferenciaTiempo = fechaReserva - ahora;
       const horasDiferencia = diferenciaTiempo / (1000 * 60 * 60);
       return (horasDiferencia < 0 || horasDiferencia > 24) ? "Las reservas solo se pueden hacer entre ahora y las próximas 24 horas." : null;
     },
-    async verificarSolapamientoJugadores() {
-      const jugadoresCompletos = this.jugadores.filter(j => j.name && j.apellido);
-      for (let jugador of jugadoresCompletos) {
-        try {
-          const response = await axios.get(`http://localhost:8000/reservas/verificar_solapamiento_jugador/`, {
-            params: {
-              nombre: jugador.name,
-              apellido: jugador.apellido,
-              dia: this.reserva.dia,
-              hora_inicio: this.reserva.hora_inicio,
-              hora_fin: this.reserva.hora_fin
-            }
-          });
-          if (response.data.solapamiento) {
-            return response.data.mensaje;
+    async verificarSolapamientoJugador(jugador) {
+      try {
+        const horaInicio = this.reserva.hora_inicio.slice(0, 5);  // Asegura formato HH:MM
+        const horaFin = this.reserva.hora_fin.slice(0, 5);  // Asegura formato HH:MM
+        const response = await axios.get(`http://localhost:8000/reservas/verificar_solapamiento_jugador/`, {
+          params: {
+            nombre: jugador.name,
+            apellido: jugador.apellido,
+            dia: this.reserva.dia,
+            hora_inicio: horaInicio,
+            hora_fin: horaFin,
+            reserva_id: this.isEditing ? this.reservaId : undefined
           }
-        } catch (error) {
-          console.error("Error al verificar solapamiento de jugador:", error);
-          if (error.response) {
-            return `Error al verificar solapamiento: ${error.response.data.detail || error.message}`;
-          } else {
-            return "Error de conexión al verificar solapamiento de jugadores.";
-          }
+        });
+        if (response.data.solapamiento) {
+          return response.data.mensaje;
+        }
+      } catch (error) {
+        console.error("Error al verificar solapamiento de jugador:", error);
+        if (error.response && error.response.data) {
+          return `Error al verificar solapamiento: ${error.response.data.detail || error.message}`;
+        } else {
+          return "Error de conexión al verificar solapamiento de jugadores.";
         }
       }
       return null;
     },
     async verificarSolapamientoPista() {
       try {
+        const horaInicio = this.reserva.hora_inicio.slice(0, 5);  // Asegura formato HH:MM
+        const horaFin = this.reserva.hora_fin.slice(0, 5);  // Asegura formato HH:MM
         const response = await axios.get(`http://localhost:8000/reservas/verificar_solapamiento_pista/`, {
           params: {
             pista_id: this.reserva.pista_id,
             dia: this.reserva.dia,
-            hora_inicio: this.reserva.hora_inicio,
-            hora_fin: this.reserva.hora_fin
+            hora_inicio: horaInicio,
+            hora_fin: horaFin,
+            reserva_id: this.isEditing ? this.reservaId : undefined
           }
         });
         if (response.data.solapamiento) {
@@ -212,7 +226,7 @@ export default {
         return null;
       } catch (error) {
         console.error("Error al verificar solapamiento de pista:", error);
-        if (error.response) {
+        if (error.response && error.response.data) {
           return `Error al verificar disponibilidad: ${error.response.data.detail || error.message}`;
         } else {
           return "Error al verificar disponibilidad de la pista.";
@@ -220,9 +234,8 @@ export default {
       }
     },
     async handleSubmit() {
-      this.errores = []; // Limpiar errores anteriores
+      this.errores = [];
 
-      // Verificaciones del frontend
       const errorJugadoresRepetidos = this.verificarJugadoresRepetidos();
       if (errorJugadoresRepetidos) {
         this.errores.push(errorJugadoresRepetidos);
@@ -233,9 +246,13 @@ export default {
         this.errores.push(errorTiempoReserva);
       }
 
-      const errorSolapamientoJugadores = await this.verificarSolapamientoJugadores();
-      if (errorSolapamientoJugadores) {
-        this.errores.push(errorSolapamientoJugadores);
+      for (const jugador of this.jugadores) {
+        if (jugador.name && jugador.apellido) {
+          const errorSolapamientoJugador = await this.verificarSolapamientoJugador(jugador);
+          if (errorSolapamientoJugador) {
+            this.errores.push(errorSolapamientoJugador);
+          }
+        }
       }
 
       const errorSolapamientoPista = await this.verificarSolapamientoPista();
@@ -261,10 +278,13 @@ export default {
       }
 
       if (this.errores.length > 0) {
-        // Mostrar errores al usuario
         alert(this.errores.join("\n"));
         return;
       }
+
+      // Imprimir los datos antes de enviar para verificar
+      console.log('Datos de la reserva antes de enviar:', JSON.stringify(this.reserva, null, 2));
+      console.log('Datos de los jugadores antes de enviar:', JSON.stringify(this.jugadores, null, 2));
 
       const reservaData = {
         ...this.reserva,
@@ -275,15 +295,44 @@ export default {
         }))
       };
 
-      console.log("Datos a enviar:", JSON.stringify(reservaData, null, 2));
+      console.log('Datos a enviar al backend:', JSON.stringify(reservaData, null, 2));
 
       try {
-        const response = await axios.post('http://localhost:8000/reservas/', reservaData);
+        let response;
+        if (this.isEditing) {
+          response = await axios.put(`http://localhost:8000/reservas/${this.reservaId}`, reservaData);
+        } else {
+          response = await axios.post('http://localhost:8000/reservas/', reservaData);
+        }
         console.log("Respuesta del servidor:", response.data);
-        alert("Reserva guardada con éxito");
-        this.handleReset();
-        this.fetchPistas();
-        this.router.push('/');
+        console.log("Jugadores actualizados:", response.data.jugadores);
+
+        // Actualizar el estado local con los datos recibidos
+        this.reserva = {
+          pista_id: response.data.pista_id,
+          dia: response.data.dia,
+          hora_inicio: response.data.hora_inicio.slice(0, 5),  // Asegura formato HH:MM
+          hora_fin: response.data.hora_fin.slice(0, 5),  // Asegura formato HH:MM
+          individuales: response.data.individuales
+        };
+        this.jugadores = response.data.jugadores.map(j => ({
+          name: j.name,
+          apellido: j.apellido,
+          tipo_jugador: j.tipo_jugador
+        }));
+
+        // Asegurarse de que siempre haya 4 jugadores en el array
+        while (this.jugadores.length < 4) {
+          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+        }
+
+        alert(this.isEditing ? "Reserva modificada con éxito" : "Reserva guardada con éxito");
+        
+        // Esperar un momento antes de redireccionar
+        setTimeout(() => {
+          this.handleReset();
+          this.router.push('/');
+        }, 500);
       } catch (error) {
         console.error("Error completo:", error);
         if (error.response) {
@@ -292,16 +341,46 @@ export default {
           console.error("Estado de la respuesta:", error.response.status);
           console.error("Cabeceras de la respuesta:", error.response.headers);
         }
-        alert("Error al guardar la reserva: " + (error.response?.data?.detail ? JSON.stringify(error.response.data.detail) : error.message));
+        alert("Error al " + (this.isEditing ? "modificar" : "guardar") + " la reserva: " + (error.response?.data?.detail ? JSON.stringify(error.response.data.detail) : error.message));
       }
     },
+    async cargarReserva(id) {
+      try {
+        const response = await axios.get(`http://localhost:8000/reservas/${id}`);
+        const reserva = response.data;
+        this.reserva = {
+          pista_id: reserva.pista_id,
+          dia: reserva.dia,
+          hora_inicio: reserva.hora_inicio.slice(0, 5),  // Asegura formato HH:MM
+          hora_fin: reserva.hora_fin.slice(0, 5),  // Asegura formato HH:MM
+          individuales: reserva.individuales
+        };
+        this.jugadores = reserva.jugadores.map(j => ({
+          name: j.name,
+          apellido: j.apellido,
+          tipo_jugador: j.tipo_jugador
+        }));
+        while (this.jugadores.length < 4) {
+          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+        }
+        this.isEditing = true;
+        this.reservaId = id;
+      } catch (error) {
+        console.error("Error al cargar la reserva:", error);
+        alert("Error al cargar la reserva. Por favor, intente nuevamente.");
+      }
+    }
   },
-  mounted() {
-    this.fetchPistas();
+  async mounted() {
+    await this.fetchPistas();
+    const id = this.route.params.id;
+    if (id) {
+      await this.cargarReserva(id);
+    }
   }
 };
 </script>
 
 <style scoped>
-/* Estilos adicionales si los necesitas */
+/* Puedes añadir estilos específicos aquí si los necesitas */
 </style>

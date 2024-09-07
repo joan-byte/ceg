@@ -17,6 +17,20 @@ class JugadorReserva(BaseModel):
     name: str
     apellido: str
 
+class JugadorReservaUpdate(JugadorReserva):
+    tipo_jugador: Optional[str] = None
+
+class ReservaUpdateWithJugadores(BaseModel):
+    pista_id: int
+    dia: date
+    hora_inicio: time
+    hora_fin: Optional[time] = None  # Añadimos este campo como opcional
+    jugadores: List[JugadorReservaUpdate]
+
+    class Config:
+        from_attributes = True
+    
+
     class Config:
         from_attributes = True
 

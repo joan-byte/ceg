@@ -194,6 +194,20 @@ export default {
       editReserva,
       deleteReserva
     };
+  },
+  async mounted() {
+    await this.cargarReservasActualizadas();
+  },
+  methods: {
+    async cargarReservasActualizadas() {
+      try {
+        const response = await axios.get('http://localhost:8000/reservas/');
+        // Actualizar el estado con las reservas más recientes
+        this.reservas = response.data;
+      } catch (error) {
+        console.error("Error al cargar las reservas:", error);
+      }
+    }
   }
 };
 </script>

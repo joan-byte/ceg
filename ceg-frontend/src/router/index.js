@@ -20,6 +20,12 @@ const routes = [
     component: Reservas, 
     meta: { requiresAuth: true }
   },
+  {
+    path: '/reservas/:id/edit',
+    name: 'EditarReserva',
+    component: Reservas,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
   { 
     path: '/administradores', 
     name: 'Administradores', 
@@ -56,7 +62,8 @@ const routes = [
     component: MiPerfil,
     meta: { requiresAuth: true }
   },
-  { path: '/logout', name: 'Logout', component: Logout }
+  { path: '/logout', name: 'Logout', component: Logout },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: Home }  // Ruta catch-all
 ]
 
 const router = createRouter({

@@ -6,7 +6,7 @@ from app import models, schemas
 from passlib.context import CryptContext
 import bcrypt
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import timedelta, datetime, date
+from datetime import timedelta, datetime, date, time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -299,66 +299,42 @@ def create_jugador(db: Session, jugador: schemas.JugadorCreate):
     db.add(db_jugador)
     return db_jugador
 
-def update_reserva(db: Session, reserva_id: int, reserva: schemas.ReservaUpdate):
+def update_reserva(db: Session, reserva_id: int, reserva: schemas.ReservaUpdateWithJugadores):
     try:
         db_reserva = get_reserva(db, reserva_id)
         if not db_reserva:
             raise ValueError(f"Reserva con ID {reserva_id} no encontrada")
 
-        # Iniciar transacción
-        with db.begin():
-            # Actualizar campos de la reserva
-            update_data = reserva.dict(exclude={'jugadores'})
-            for key, value in update_data.items():
-                if getattr(db_reserva, key) != value:
-                    setattr(db_reserva, key, value)
+        logger.info(f"Datos de reserva existente: {db_reserva.__dict__}")
+        logger.info(f"Datos de reserva recibidos: {reserva.dict()}")
 
-            # Actualizar fecha y hora de manera consistente con create_reserva
-            fecha = reserva.dia
-            db_reserva.hora_inicio = datetime.combine(fecha, reserva.hora_inicio)
-            db_reserva.hora_fin = datetime.combine(fecha, reserva.hora_fin)
+        # Actualizar campos de la reserva
+        for key, value in reserva.dict(exclude={'jugadores'}).items():
+            setattr(db_reserva, key, value)
 
-            # Manejar jugadores
-            jugadores_actuales = {(j.name, j.apellido): j for j in db_reserva.jugadores}
-            jugadores_nuevos = {(j.name, j.apellido): j for j in reserva.jugadores}
+        # Actualizar jugadores
+        db_reserva.jugadores = []  # Eliminar jugadores existentes
+        for jugador_data in reserva.jugadores:
+            if jugador_data.name and jugador_data.apellido:
+                new_jugador = models.Jugador(
+                    name=jugador_data.name,
+                    apellido=jugador_data.apellido,
+                    tipo_jugador=jugador_data.tipo_jugador,
+                    reserva_id=db_reserva.id
+                )
+                db_reserva.jugadores.append(new_jugador)
+                logger.info(f"Jugador añadido: {new_jugador.__dict__}")
 
-            # Eliminar jugadores que ya no están en la reserva
-            for key in set(jugadores_actuales.keys()) - set(jugadores_nuevos.keys()):
-                db.delete(jugadores_actuales[key])
-
-            # Actualizar o crear jugadores
-            for key, jugador_nuevo in jugadores_nuevos.items():
-                if key in jugadores_actuales:
-                    jugador_actual = jugadores_actuales[key]
-                    # Actualizar tipo_jugador si es necesario
-                    if jugador_actual.tipo_jugador != jugador_nuevo.tipo_jugador:
-                        jugador_actual.tipo_jugador = jugador_nuevo.tipo_jugador
-                else:
-                    # Crear nuevo jugador
-                    db_jugador = models.Jugador(
-                        name=jugador_nuevo.name,
-                        apellido=jugador_nuevo.apellido,
-                        tipo_jugador=jugador_nuevo.tipo_jugador,
-                        reserva_id=db_reserva.id
-                    )
-                    db.add(db_jugador)
-
-            db.flush()
-            db.refresh(db_reserva)
-
+        db.commit()
+        db.refresh(db_reserva)
+        logger.info(f"Reserva actualizada con éxito: {db_reserva.id}")
+        logger.info(f"Jugadores actualizados: {[{j.name, j.apellido, j.tipo_jugador} for j in db_reserva.jugadores]}")
         return db_reserva
-    except ValueError as ve:
-        logger.error(f"Error de validación al actualizar reserva: {str(ve)}")
-        raise
-    except SQLAlchemyError as e:
-        logger.error(f"Error de base de datos al actualizar reserva: {str(e)}")
-        db.rollback()
-        raise
     except Exception as e:
-        logger.error(f"Error inesperado al actualizar reserva: {str(e)}")
         db.rollback()
+        logger.error(f"Error al actualizar reserva: {str(e)}")
         raise
-
+    
 def delete_reserva(db: Session, reserva_id: int):
     db_reserva = get_reserva(db, reserva_id)
     if not db_reserva:
