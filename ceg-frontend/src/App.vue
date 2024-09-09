@@ -1,9 +1,9 @@
 <template>
   <div id="app">
     <Navbar
-      :isAuthenticated="isAuthenticated"
-      :isAdmin="isAdmin"
-      :isSocio="isSocio"
+      :isAuthenticated="authState.isAuthenticated"
+      :isAdmin="authState.isAdmin"
+      :isSocio="authState.isSocio"
       @logout="logout"
     />
     <router-view @login-success="handleLoginSuccess" />
@@ -21,9 +21,11 @@ export default {
   },
   data() {
     return {
-      isAuthenticated: false,
-      isAdmin: false,
-      isSocio: false
+      authState: {
+        isAuthenticated: false,
+        isAdmin: false,
+        isSocio: false
+      }
     }
   },
   created() {
@@ -31,79 +33,61 @@ export default {
   },
   methods: {
     async checkAuth() {
-      const token = localStorage.getItem('token')
-      console.log('Token encontrado:', token ? 'Presente' : 'No presente')
+      const token = localStorage.getItem('token');
+      const userRole = localStorage.getItem('userRole');
       
-      if (!token) {
-        this.resetAuthState()
-        return
-      }
-
-      try {
-        const response = await this.getUserInfo(token)
-        this.updateAuthState(response.data)
-      } catch (error) {
-        console.error('Error al verificar el token:', error)
-        this.handleAuthError()
-      }
-    },
-    async getUserInfo(token) {
-      try {
-        const adminResponse = await axios.get('http://localhost:8000/admin/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        return { data: { ...adminResponse.data, role: 'admin' } }
-      } catch (error) {
-        if (error.response && error.response.status !== 401) {
-          throw error
+      if (token && userRole) {
+        try {
+          let userInfo;
+          if (userRole === 'admin') {
+            userInfo = await this.getUserInfo('http://localhost:8000/admin/me');
+          } else if (userRole === 'socio') {
+            userInfo = await this.getUserInfo('http://localhost:8000/socios/me');
+          }
+          
+          if (userInfo) {
+            this.updateAuthState(true, userRole === 'admin', userRole === 'socio');
+          } else {
+            this.logout();
+          }
+        } catch (error) {
+          console.error('Error al verificar la autenticación:', error);
+          this.logout();
         }
+      } else {
+        this.logout();
       }
+    },
 
+    async getUserInfo(url) {
+      const token = localStorage.getItem('token');
       try {
-        const socioResponse = await axios.get('http://localhost:8000/socios/me', {
+        const response = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` }
-        })
-        return { data: { ...socioResponse.data, role: 'socio' } }
+        });
+        return response.data;
       } catch (error) {
-        throw error
+        console.error('Error al obtener información del usuario:', error);
+        return null;
       }
     },
-    updateAuthState(userData) {
-      this.isAuthenticated = true
-      this.isAdmin = userData.role === 'admin'
-      this.isSocio = userData.role === 'socio'
-      console.log('Estado de autenticación actualizado:', { isAuthenticated: this.isAuthenticated, isAdmin: this.isAdmin, isSocio: this.isSocio })
-      
-      if (this.$route.path === '/login') {
-        if (this.isAdmin) {
-          this.$router.push('/administradores')
-        } else if (this.isSocio) {
-          this.$router.push('/socios')
-        } else {
-          this.$router.push('/')
-        }
-      }
+
+    updateAuthState(isAuthenticated, isAdmin, isSocio) {
+      this.authState.isAuthenticated = isAuthenticated;
+      this.authState.isAdmin = isAdmin;
+      this.authState.isSocio = isSocio;
     },
-    resetAuthState() {
-      this.isAuthenticated = false
-      this.isAdmin = false
-      this.isSocio = false
-    },
-    handleAuthError() {
-      this.resetAuthState()
-      localStorage.removeItem('token')
-      if (this.$route.meta.requiresAuth) {
-        this.$router.push('/login')
-      }
-    },
+
     logout() {
-      this.resetAuthState()
-      localStorage.removeItem('token')
-      this.$router.push('/login')
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      this.updateAuthState(false, false, false);
+      this.$router.push('/login');
     },
+
     handleLoginSuccess(userData) {
       console.log('Login exitoso, datos del usuario:', userData)
-      this.updateAuthState(userData)
+      this.updateAuthState(true, userData.role === 'admin', userData.role === 'socio')
     }
   }
 }

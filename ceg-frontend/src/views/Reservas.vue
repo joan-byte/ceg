@@ -33,18 +33,23 @@
       </div>
 
       <!-- Filas para cada jugador -->
-      <div v-for="(jugador, index) in jugadoresFormateados" :key="index" class="flex mb-4">
+      <div v-for="(jugador, index) in jugadores" :key="index" class="flex mb-4">
         <div class="w-1/3 pr-2">
           <label :for="'jugador' + index + '_name'" class="block text-gray-700">Nombre Jugador {{ index + 1 }}:</label>
-          <input type="text" :id="'jugador' + index + '_name'" :name="'jugador' + index + '_name'" v-model="jugador.name" @blur="verificarJugador(index)" placeholder="Nombre" class="w-full p-2 border rounded">
+          <input type="text" :id="'jugador' + index + '_name'" :name="'jugador' + index + '_name'" 
+                 v-model="jugador.name" @blur="verificarJugador(index)" placeholder="Nombre" 
+                 class="w-full p-2 border rounded" :readonly="index === 0 && jugador.readonly">
         </div>
         <div class="w-1/3 px-2">
           <label :for="'jugador' + index + '_apellido'" class="block text-gray-700">Apellido Jugador {{ index + 1 }}:</label>
-          <input type="text" :id="'jugador' + index + '_apellido'" :name="'jugador' + index + '_apellido'" v-model="jugador.apellido" @blur="verificarJugador(index)" placeholder="Apellido" class="w-full p-2 border rounded">
+          <input type="text" :id="'jugador' + index + '_apellido'" :name="'jugador' + index + '_apellido'" 
+                 v-model="jugador.apellido" @blur="verificarJugador(index)" placeholder="Apellido" 
+                 class="w-full p-2 border rounded" :readonly="index === 0 && jugador.readonly">
         </div>
         <div class="w-1/3 pl-2">
           <label :for="'jugador' + index + '_tipo'" class="block text-gray-700">Tipo de Jugador {{ index + 1 }}:</label>
-          <input type="text" :id="'jugador' + index + '_tipo'" :name="'jugador' + index + '_tipo'" v-model="jugador.tipo_jugador" class="w-full p-2 border rounded" readonly>
+          <input type="text" :id="'jugador' + index + '_tipo'" :name="'jugador' + index + '_tipo'" 
+                 v-model="jugador.tipo_jugador" class="w-full p-2 border rounded" readonly>
         </div>
       </div>
 
@@ -83,13 +88,15 @@ export default {
         individuales: false
       },
       jugadores: [
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' }
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false }
       ],
       errores: [],
-      isAdmin: false
+      isAdmin: false,
+      userRole: localStorage.getItem('userRole') || '',
+      socioActual: null
     };
   },
   computed: {
@@ -156,12 +163,13 @@ export default {
         individuales: false
       };
       this.jugadores = [
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' },
-        { name: '', apellido: '', tipo_jugador: '' }
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false }
       ];
       this.errores = [];
+      this.rellenarDatosPrimerJugador();
     },
     handleCancel() {
       this.handleReset();
@@ -331,7 +339,11 @@ export default {
         // Esperar un momento antes de redireccionar
         setTimeout(() => {
           this.handleReset();
-          this.router.push('/');
+          if (this.userRole === 'socio') {
+            this.router.push('/mis-reservas');
+          } else {
+            this.router.push('/'); // Mantiene la redirección original para administradores
+          }
         }, 500);
       } catch (error) {
         console.error("Error completo:", error);
@@ -369,6 +381,54 @@ export default {
         console.error("Error al cargar la reserva:", error);
         alert("Error al cargar la reserva. Por favor, intente nuevamente.");
       }
+    },
+    async obtenerSocioActual() {
+      const token = localStorage.getItem('token');
+      if (token && this.userRole === 'socio') {
+        try {
+          const response = await axios.get('http://localhost:8000/socios/me', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          console.log('Datos del socio recibidos:', response.data);
+          this.socioActual = response.data;
+          this.rellenarDatosPrimerJugador();
+        } catch (error) {
+          console.error("Error al obtener datos del socio:", error);
+        }
+      }
+    },
+    rellenarDatosPrimerJugador() {
+      console.log('Entrando en rellenarDatosPrimerJugador');
+      console.log('socioActual:', this.socioActual);
+      console.log('isEditing:', this.isEditing);
+      if (this.socioActual && !this.isEditing) {
+        console.log('Rellenando datos del primer jugador');
+        const jugador = {
+          name: this.socioActual.name,
+          apellido: this.socioActual.lastname,
+          tipo_jugador: this.socioActual.type,
+          readonly: true
+        };
+        console.log('Datos del jugador antes de asignar:', jugador);
+        this.jugadores[0] = jugador;
+        console.log('Datos del primer jugador después de rellenar:', this.jugadores[0]);
+        this.verificarJugador(0);
+      } else {
+        console.log('No se rellenaron los datos del primer jugador');
+      }
+    },
+    verificarJugador(index) {
+      console.log('Verificando jugador:', index);
+      console.log('Datos del jugador antes de verificar:', this.jugadores[index]);
+      const jugador = this.jugadores[index];
+      if (jugador.name && jugador.apellido) {
+        // ... lógica de verificación
+        // Asegúrate de no sobrescribir tipo_jugador aquí si ya está establecido
+        if (!jugador.tipo_jugador) {
+          jugador.tipo_jugador = 'resultado de la verificación';
+        }
+      }
+      console.log('Datos del jugador después de verificar:', this.jugadores[index]);
     }
   },
   async mounted() {
@@ -376,6 +436,8 @@ export default {
     const id = this.route.params.id;
     if (id) {
       await this.cargarReserva(id);
+    } else {
+      await this.obtenerSocioActual();
     }
   }
 };

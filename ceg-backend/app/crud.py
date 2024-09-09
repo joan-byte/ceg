@@ -336,14 +336,27 @@ def update_reserva(db: Session, reserva_id: int, reserva: schemas.ReservaUpdateW
         raise
     
 def delete_reserva(db: Session, reserva_id: int):
-    db_reserva = get_reserva(db, reserva_id)
-    if not db_reserva:
-        raise ValueError(f"Reserva con ID {reserva_id} no encontrada")
+    try:
+        db_reserva = get_reserva(db, reserva_id)
+        if not db_reserva:
+            logger.warning(f"Reserva con ID {reserva_id} no encontrada")
+            return None
 
-    db.query(models.Jugador).filter(models.Jugador.reserva_id == reserva_id).delete()
-    db.delete(db_reserva)
-    db.flush()
-    return db_reserva
+        # Eliminar jugadores asociados
+        db.query(models.Jugador).filter(models.Jugador.reserva_id == reserva_id).delete()
+        
+        # Eliminar la reserva
+        db.delete(db_reserva)
+        
+        # Commit de los cambios
+        db.commit()
+        
+        logger.info(f"Reserva con ID {reserva_id} eliminada correctamente")
+        return db_reserva
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error al eliminar reserva: {str(e)}")
+        raise
 
 def get_reservas_by_jugador(db: Session, name: str, apellido: str):
     return db.query(models.Reserva).join(models.Jugador).filter(
