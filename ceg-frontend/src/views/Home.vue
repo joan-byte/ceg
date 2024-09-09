@@ -30,8 +30,11 @@
         </div>
       </div>
     </div>
-    <div class="mt-4 text-sm">
-      Estado de admin: {{ isAdmin ? 'Administrador' : 'No administrador' }}
+    <div v-if="userRoleLoaded" class="mt-4 text-sm">
+      Estado de usuario: {{ userRole ? (userRole === 'admin' ? 'Administrador' : (userRole === 'socio' ? 'Socio' : 'No autenticado')) : 'No autenticado' }}
+    </div>
+    <div v-else>
+      Cargando...
     </div>
   </div>
 </template>
@@ -48,24 +51,44 @@ export default {
     const error = ref(null);
     const isLoading = ref(true);
     const isAdmin = ref(false);
+    const userRole = ref(null);
+    const userRoleLoaded = ref(false);
     const router = useRouter();
 
-    const checkAdminStatus = async () => {
+    const checkUserStatus = async () => {
       const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await axios.get('http://localhost:8000/admin/check-role', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          isAdmin.value = response.data.is_admin;
-          console.log('Estado de admin:', isAdmin.value);
-        } catch (err) {
-          console.error('Error al verificar el estado de admin:', err);
-          isAdmin.value = false;
-        }
-      } else {
+      const storedUserRole = localStorage.getItem('userRole');
+
+      if (!token || !storedUserRole) {
+        console.log('No hay token o rol de usuario');
+        userRole.value = null;
         isAdmin.value = false;
+      } else {
+        try {
+          if (storedUserRole === 'admin') {
+            const response = await axios.get('http://localhost:8000/admin/check-role', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            isAdmin.value = response.data.is_admin;
+            userRole.value = 'admin';
+          } else if (storedUserRole === 'socio') {
+            const response = await axios.get('http://localhost:8000/socios/me', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data) {
+              userRole.value = 'socio';
+            }
+          }
+        } catch (err) {
+          console.error('Error al verificar el estado de usuario:', err);
+          userRole.value = null;
+          isAdmin.value = false;
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
+          router.push('/login');
+        }
       }
+      userRoleLoaded.value = true;
     };
 
     const fetchReservas = async () => {
@@ -166,7 +189,7 @@ export default {
           error.value = 'Error al eliminar la reserva. Por favor, intente nuevamente.';
           if (err.response && err.response.status === 401) {
             localStorage.removeItem('token');
-            localStorage.removeItem('role');
+            localStorage.removeItem('userRole');
             isAdmin.value = false;
           }
         }
@@ -174,12 +197,12 @@ export default {
     };
 
     onMounted(async () => {
-      await checkAdminStatus();
+      await checkUserStatus();
       await Promise.all([fetchPistas(), fetchReservas()]);
     });
 
-    watch(isAdmin, (newValue) => {
-      console.log('isAdmin cambió a:', newValue);
+    watch(userRole, (newValue) => {
+      console.log('userRole cambió a:', newValue);
     });
 
     return {
@@ -191,8 +214,11 @@ export default {
       error,
       isLoading,
       isAdmin,
+      userRole,
+      userRoleLoaded,
       editReserva,
-      deleteReserva
+      deleteReserva,
+      checkUserStatus
     };
   },
   async mounted() {

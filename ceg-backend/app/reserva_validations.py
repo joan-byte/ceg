@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from . import models, schemas
 from fastapi import HTTPException
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from typing import Union, Optional
 
 def verificar_reserva(db: Session, reserva: Union[schemas.ReservaCreate, schemas.ReservaUpdate], reserva_id: Optional[int] = None):
@@ -38,8 +38,20 @@ def verificar_reserva(db: Session, reserva: Union[schemas.ReservaCreate, schemas
     query = db.query(models.Reserva).filter(
         models.Reserva.pista_id == reserva.pista_id,
         models.Reserva.dia == reserva.dia,
-        models.Reserva.hora_inicio < reserva.hora_fin,
-        models.Reserva.hora_fin > reserva.hora_inicio
+        or_(
+            and_(
+                models.Reserva.hora_inicio < reserva.hora_fin,
+                models.Reserva.hora_fin > reserva.hora_inicio
+            ),
+            and_(
+                models.Reserva.hora_inicio >= reserva.hora_inicio,
+                models.Reserva.hora_inicio < reserva.hora_fin
+            ),
+            and_(
+                models.Reserva.hora_fin > reserva.hora_inicio,
+                models.Reserva.hora_fin <= reserva.hora_fin
+            )
+        )
     )
     
     if reserva_id is not None:

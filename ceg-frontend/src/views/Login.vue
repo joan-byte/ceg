@@ -4,19 +4,17 @@
     <form @submit.prevent="login">
       <div>
         <label for="role">Selecciona tu rol:</label>
-        <select v-model="role" id="role" autocomplete="off">
+        <select v-model="role" id="role" autocomplete="off" @change="updateInputType">
           <option value="socio">Socio</option>
           <option value="admin">Administrador</option>
         </select>
       </div>
       <div>
-        <label for="username">Email/Nombre:</label>
-        <!-- Añadir el atributo autocomplete adecuado -->
-        <input v-model="username" type="text" id="username" required autocomplete="username" />
+        <label :for="inputId">{{ inputLabel }}:</label>
+        <input v-model="username" :type="inputType" :id="inputId" required :autocomplete="autocompleteType" />
       </div>
       <div>
         <label for="password">Password:</label>
-        <!-- Añadir el atributo autocomplete adecuado -->
         <input v-model="password" type="password" id="password" required autocomplete="current-password" />
       </div>
       <button type="submit" :disabled="isLoading">{{ isLoading ? 'Cargando...' : 'Login' }}</button>
@@ -35,10 +33,27 @@ export default {
       password: '',
       role: 'socio',
       errorMessage: '',
-      isLoading: false
+      isLoading: false,
+      inputType: 'email',
+      inputId: 'email',
+      inputLabel: 'Email',
+      autocompleteType: 'email'
     }
   },
   methods: {
+    updateInputType() {
+      if (this.role === 'admin') {
+        this.inputType = 'text';
+        this.inputId = 'username';
+        this.inputLabel = 'Nombre';
+        this.autocompleteType = 'username';
+      } else {
+        this.inputType = 'email';
+        this.inputId = 'email';
+        this.inputLabel = 'Email';
+        this.autocompleteType = 'email';
+      }
+    },
     async login() {
       this.isLoading = true;
       this.errorMessage = '';
@@ -53,10 +68,12 @@ export default {
 
         const tokenResponse = await axios.post(tokenUrl, formData);
         const token = tokenResponse.data.access_token;
+        
+        // Guarda el token y el rol en el almacenamiento local
         localStorage.setItem('token', token);
-
-        // Guardar el rol del usuario en localStorage
         localStorage.setItem('userRole', this.role);
+
+        console.log('Token guardado:', token); // Para depuración
 
         const userUrl = this.role === 'admin'
           ? 'http://localhost:8000/admin/me'
@@ -76,6 +93,8 @@ export default {
         if (error.response) {
           if (error.response.status === 401) {
             this.errorMessage = 'Credenciales incorrectas. Por favor, inténtalo de nuevo.';
+          } else if (error.response.status === 422) {
+            this.errorMessage = 'Datos de inicio de sesión incorrectos. Verifica tu ' + (this.role === 'admin' ? 'nombre de usuario' : 'email') + ' y contraseña.';
           } else {
             this.errorMessage = 'Error en el servidor. Por favor, inténtalo más tarde.';
           }
@@ -89,6 +108,9 @@ export default {
         this.isLoading = false;
       }
     }
+  },
+  created() {
+    this.updateInputType();
   }
 }
 </script>

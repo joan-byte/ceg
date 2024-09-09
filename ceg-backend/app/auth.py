@@ -30,8 +30,7 @@ def create_admin_token(admin: models.Admin) -> str:
     return create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 def create_socio_token(socio: models.Socio) -> str:
-    # Utiliza 'sub' para almacenar el identificador único del socio
-    token_data = {"sub": socio.email, "role": "socio"}  # Aquí 'sub' es el email del socio
+    token_data = {"sub": socio.email, "role": "socio"}
     return create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -40,7 +39,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "role": data.get("role", "socio")})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -104,18 +103,16 @@ async def get_current_socio(db: Session = Depends(get_db), token: str = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Decodifica el token JWT y obtiene 'sub' como el identificador principal
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         sub: str = payload.get("sub")
-        if sub is None:
+        role: str = payload.get("role")
+        if sub is None or role != "socio":
             raise credentials_exception
-        # Crea el objeto TokenData con 'sub'
-        token_data = schemas.TokenData(sub=sub)
+        token_data = schemas.TokenData(sub=sub, role=role)
     except JWTError:
         raise credentials_exception
     
-    # Busca al socio utilizando 'sub' como identificador
-    socio = crud.get_socio_by_email(db, email=token_data.sub)  # Ajusta esta línea según el identificador utilizado como 'sub'
+    socio = crud.get_socio_by_email(db, email=token_data.sub)
     if socio is None:
         raise credentials_exception
     return socio
@@ -153,6 +150,7 @@ async def get_current_socio_me(current_socio: models.Socio = Depends(get_current
 @router.get("/admin/me", response_model=schemas.Admin)
 async def get_current_admin_me(current_admin: models.Admin = Depends(get_current_admin)):
     return current_admin
+
 @router.get("/admin/check-role")
 async def check_admin_role(current_admin: models.Admin = Depends(get_current_admin)):
     return {
