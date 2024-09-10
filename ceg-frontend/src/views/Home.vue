@@ -11,21 +11,27 @@
     <div v-else-if="Object.keys(reservasAgrupadasPorPista).length === 0" class="text-center py-4">
       <p>No hay reservas disponibles en las próximas 24 horas.</p>
     </div>
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       <div v-for="(pistaReservas, pistaId) in reservasAgrupadasPorPista" :key="pistaId" class="mb-6">
         <h2 class="text-xl font-semibold mb-3">{{ getNombrePista(pistaId) }}</h2>
-        <div v-for="reserva in pistaReservas" :key="reserva.id" class="bg-white shadow-md rounded-lg p-4 mb-4">
-          <div class="font-bold">{{ formatDate(reserva.dia) }}</div>
-          <div>
-            {{ formatTime(reserva.hora_inicio) }} - {{ formatTime(reserva.hora_fin) }}
-            <span v-if="reservaEnCurso(reserva)" class="ml-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">En curso</span>
-          </div>
-          <div v-for="jugador in reserva.jugadores" :key="jugador.id" class="text-sm">
-            {{ jugador.name }} {{ jugador.apellido }} ({{ jugador.tipo_jugador }})
-          </div>
-          <div v-if="isAdmin" class="mt-4 flex space-x-2">
-            <button @click="editReserva(reserva)" class="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600">Modificar</button>
-            <button @click="deleteReserva(reserva.id)" class="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600">Eliminar</button>
+        <div class="grid grid-cols-1 gap-4">
+          <div v-for="reserva in pistaReservas" :key="reserva.id" class="bg-white shadow-md rounded-lg p-4 flex flex-col justify-between h-64 w-full">
+            <div class="flex flex-col h-full">
+              <div class="font-bold">{{ formatDate(reserva.dia) }}</div>
+              <div>
+                {{ formatTime(reserva.hora_inicio) }} - {{ formatTime(reserva.hora_fin) }}
+                <span v-if="reservaEnCurso(reserva)" class="ml-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">En curso</span>
+              </div>
+              <div class="flex-grow overflow-y-auto">
+                <div v-for="jugador in reserva.jugadores" :key="jugador.id" class="text-sm">
+                  {{ jugador.name }} {{ jugador.apellido }} ({{ jugador.tipo_jugador }})
+                </div>
+              </div>
+            </div>
+            <div v-if="isAdmin" class="mt-2 flex space-x-2">
+              <button @click="editReserva(reserva)" class="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">Modificar</button>
+              <button @click="deleteReserva(reserva.id)" class="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">Eliminar</button>
+            </div>
           </div>
         </div>
       </div>

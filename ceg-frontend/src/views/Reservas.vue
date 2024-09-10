@@ -139,20 +139,34 @@ export default {
       }
     },
     async verificarJugador(index) {
+      console.log('Verificando jugador:', index);
       const jugador = this.jugadores[index];
-      if (jugador.name && jugador.apellido) {
+      console.log('Datos del jugador antes de verificar:', jugador);
+
+      if (jugador.name && jugador.apellido && !jugador.tipo_jugador) {
         try {
+          console.log('Enviando solicitud al servidor...');
           const response = await axios.post('http://localhost:8000/jugadores/verificar/', {
             name: jugador.name,
             apellido: jugador.apellido,
           });
-          jugador.tipo_jugador = response.data;
+          console.log('Respuesta del servidor:', response.data);
+
+          if (typeof response.data === 'object' && 'es_socio' in response.data) {
+            // Nueva estructura de respuesta
+            jugador.tipo_jugador = response.data.es_socio ? response.data.tipo_socio : "No Socio";
+          } else {
+            // Estructura de respuesta anterior
+            jugador.tipo_jugador = response.data;
+          }
         } catch (error) {
           console.error("Error al verificar el jugador:", error);
           jugador.tipo_jugador = 'Error';
           this.errores.push(`Error al verificar el jugador ${jugador.name} ${jugador.apellido}`);
         }
       }
+
+      console.log('Datos del jugador después de verificar:', jugador);
     },
     handleReset() {
       this.reserva = {
@@ -416,19 +430,6 @@ export default {
       } else {
         console.log('No se rellenaron los datos del primer jugador');
       }
-    },
-    verificarJugador(index) {
-      console.log('Verificando jugador:', index);
-      console.log('Datos del jugador antes de verificar:', this.jugadores[index]);
-      const jugador = this.jugadores[index];
-      if (jugador.name && jugador.apellido) {
-        // ... lógica de verificación
-        // Asegúrate de no sobrescribir tipo_jugador aquí si ya está establecido
-        if (!jugador.tipo_jugador) {
-          jugador.tipo_jugador = 'resultado de la verificación';
-        }
-      }
-      console.log('Datos del jugador después de verificar:', this.jugadores[index]);
     }
   },
   async mounted() {
