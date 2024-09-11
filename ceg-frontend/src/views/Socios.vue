@@ -118,6 +118,7 @@ export default {
           },
         });
         this.socios = response.data;
+        console.log('Socios actualizados:', this.socios);
       } catch (error) {
         console.error('Error al obtener socios:', error);
         this.errorMessage = 'Error al obtener la lista de socios.';
@@ -155,22 +156,35 @@ export default {
     },
     async updateSocio() {
       try {
-        const token = this.getToken();
+        console.log('Datos a enviar:', this.form);
         const response = await axios.put(`http://localhost:8000/socios/${this.currentSocio.id}`, this.form, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${this.getToken()}`,
             'Content-Type': 'application/json'
           },
         });
+        console.log('Respuesta del servidor:', response.data);
+        // Actualizar el socio en la lista local
         const index = this.socios.findIndex(s => s.id === this.currentSocio.id);
         if (index !== -1) {
-          this.socios[index] = { ...this.socios[index], ...response.data };
+          this.socios[index] = response.data;
         }
         this.resetForm();
-        this.errorMessage = '';
+        this.successMessage = 'Socio actualizado correctamente';
+        await this.fetchSocios();
       } catch (error) {
-        console.error('Error al actualizar socio:', error.response?.data || error.message);
-        this.errorMessage = 'Error al actualizar socio. Por favor, verifique los datos e intente nuevamente.';
+        console.error('Error al actualizar socio:', error);
+        if (error.response) {
+          // El servidor respondió con un estado fuera del rango de 2xx
+          console.error('Respuesta del servidor:', error.response.data);
+          this.errorMessage = `Error al actualizar socio: ${error.response.data.detail}`;
+        } else if (error.request) {
+          // La solicitud fue hecha pero no se recibió respuesta
+          this.errorMessage = 'No se recibió respuesta del servidor. Por favor, intente nuevamente.';
+        } else {
+          // Algo sucedió al configurar la solicitud que provocó un error
+          this.errorMessage = 'Error al enviar la solicitud. Por favor, intente nuevamente.';
+        }
       }
     },
     editSocio(socio) {
@@ -210,12 +224,13 @@ export default {
         lastname: '',
         email: '',
         phone: '',
+        password: '',
         new_password: '',
-
-
         type: 'Socio Deportivo',
       };
       this.currentSocio = null;
+      this.errorMessage = '';
+      this.successMessage = '';
     },
   },
   async mounted() {

@@ -17,14 +17,11 @@ class Socio(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    lastname = Column(String, index=True)
+    lastname = Column(String)
     email = Column(String, unique=True, index=True)
-    phone = Column(String, index=True)
+    phone = Column(String)
+    type = Column(String)
     hashed_password = Column(String)
-    type = Column(String, index=True)
-    refresh_token = Column(String, nullable=True)
-    created_at = Column(DateTime)
-    last_login = Column(DateTime, nullable=True)
 
 class Jugador(Base):
     __tablename__ = "jugadores"

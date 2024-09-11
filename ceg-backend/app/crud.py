@@ -154,27 +154,55 @@ def create_socio(db: Session, socio: schemas.SocioCreate):
         logger.error(f"Error creating socio: {str(e)}")
         raise
 
-def update_socio(db: Session, socio_id: int, socio: schemas.SocioUpdate):
+import logging
+
+logger = logging.getLogger(__name__)
+
+def update_socio(db: Session, socio_id: int, socio_in: dict):
     try:
+        logger.info(f"Intentando actualizar socio con ID: {socio_id}")
+        logger.info(f"Datos de actualización: {socio_in}")
+        
         db_socio = db.query(models.Socio).filter(models.Socio.id == socio_id).first()
         if db_socio:
-            update_data = socio.dict(exclude_unset=True)
-            for key, value in update_data.items():
-                if key == "password" and value:
-                    setattr(db_socio, key, get_password_hash(value))
-                else:
+            for key, value in socio_in.items():
+                if hasattr(db_socio, key):
                     setattr(db_socio, key, value)
             db.commit()
+            logger.info("Commit realizado en la base de datos")
             db.refresh(db_socio)
-            logger.info(f"Socio updated successfully: {db_socio.id}")
-            return db_socio
+            
+            updated_socio = db.query(models.Socio).filter(models.Socio.id == socio_id).first()
+            logger.info(f"Socio actualizado exitosamente: {updated_socio.id}")
+            logger.info(f"Datos actualizados del socio: {updated_socio.__dict__}")
+            return updated_socio
         else:
-            logger.warning(f"Socio not found for update: {socio_id}")
+            logger.warning(f"No se encontró socio con ID: {socio_id}")
             return None
-    except SQLAlchemyError as e:
+    except Exception as e:
         db.rollback()
-        logger.error(f"Error updating socio: {str(e)}")
+        logger.error(f"Error al actualizar socio: {str(e)}")
         raise
+
+def update_socio_me(db: Session, socio: models.Socio, socio_update: schemas.SocioUpdateMe):
+    update_data = socio_update.dict(exclude_unset=True)
+    
+    if 'password' in update_data:
+        socio.hashed_password = get_password_hash(update_data.pop('password'))
+    
+    for field, value in update_data.items():
+        setattr(socio, field, value)
+    
+    try:
+        db.commit()
+        db.refresh(socio)
+        logger.info(f"Socio {socio.id} actualizado exitosamente en la base de datos")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error al actualizar socio {socio.id} en la base de datos: {str(e)}")
+        raise
+    
+    return socio
 
 def delete_socio(db: Session, socio_id: int):
     try:

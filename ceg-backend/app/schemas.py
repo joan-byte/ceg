@@ -1,5 +1,5 @@
 from datetime import date, time, datetime
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, validator, Field, EmailStr
 from typing import List, Optional
 
 class Token(BaseModel):
@@ -128,7 +128,20 @@ class SocioBase(BaseModel):
 class SocioCreate(SocioBase):
     password: str
 
-class SocioUpdate(SocioBase):
+class SocioUpdate(BaseModel):
+    name: Optional[str] = None
+    lastname: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    type: Optional[str] = None
+    password: Optional[str] = None
+
+class SocioUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    lastname: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    type: Optional[str] = None
     password: Optional[str] = None
 
 class Socio(SocioBase):
@@ -158,3 +171,10 @@ class Pista(PistaBase):
 
     class Config:
         from_attributes = True
+
+class SocioUpdateMe(BaseModel):
+    name: Optional[str] = None
+    lastname: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None

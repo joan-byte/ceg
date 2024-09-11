@@ -9,6 +9,7 @@ from ..reserva_validations import verificar_reserva
 from typing import List, Optional
 import logging
 from datetime import datetime, timedelta, date, time
+from app.auth import get_current_socio
 
 router = APIRouter()
 
@@ -227,3 +228,16 @@ def check_solapamiento_pista(
     except Exception as e:
         logger.error(f"Error inesperado: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+
+@router.get("/mis-reservas", response_model=List[schemas.Reserva])
+def read_mis_reservas(db: Session = Depends(get_db), current_socio: schemas.Socio = Depends(get_current_socio)):
+    if not current_socio:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo autenticar al socio"
+        )
+    try:
+        reservas = crud.get_reservas_by_socio(db, current_socio.name, current_socio.lastname)
+        return reservas if reservas else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")

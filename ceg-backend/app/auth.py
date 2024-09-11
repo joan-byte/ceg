@@ -1,12 +1,16 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Depends, HTTPException, status, APIRouter
+from fastapi import Depends, HTTPException, status, APIRouter, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from app import crud, models, schemas
 from app.database import get_db
@@ -25,8 +29,7 @@ oauth2_scheme_socio = OAuth2PasswordBearer(tokenUrl="token_socio")
 oauth2_scheme_admin = OAuth2PasswordBearer(tokenUrl="token_admin")
 
 def create_admin_token(admin: models.Admin) -> str:
-    # Utiliza 'sub' para almacenar el identificador único del administrador
-    token_data = {"sub": admin.name, "role": "admin"}  # Aquí 'sub' es el nombre del administrador
+    token_data = {"sub": admin.name, "role": "admin"}
     return create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
 
 def create_socio_token(socio: models.Socio) -> str:
@@ -65,21 +68,6 @@ def authenticate_admin(db: Session, username: str, password: str):
         return None
     return admin
 
-@router.post("/token_socio", response_model=schemas.Token)
-def login_for_access_token_socio(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
-    socio = authenticate_socio(db, email=form_data.username, password=form_data.password)
-    if not socio:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": socio.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @router.post("/token_admin", response_model=schemas.Token)
 def login_for_access_token_admin(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     admin = authenticate_admin(db, username=form_data.username, password=form_data.password)
@@ -89,14 +77,23 @@ def login_for_access_token_admin(db: Session = Depends(get_db), form_data: OAuth
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": admin.name}, expires_delta=access_token_expires
-    )
+    access_token = create_admin_token(admin)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/token_socio", response_model=schemas.Token)
+async def login_for_access_token_socio(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    socio = authenticate_socio(db, email=form_data.username, password=form_data.password)
+    if not socio:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_socio_token(socio)
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Función para obtener el socio autenticado
-async def get_current_socio(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme_socio)):
+async def get_current_socio(token: str = Depends(oauth2_scheme_socio), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -104,15 +101,13 @@ async def get_current_socio(db: Session = Depends(get_db), token: str = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        sub: str = payload.get("sub")
-        role: str = payload.get("role")
-        if sub is None or role != "socio":
+        username: str = payload.get("sub")
+        if username is None:
             raise credentials_exception
-        token_data = schemas.TokenData(sub=sub, role=role)
+        token_data = schemas.TokenData(sub=username, role=payload.get("role"))
     except JWTError:
         raise credentials_exception
-    
-    socio = crud.get_socio_by_email(db, email=token_data.sub)
+    socio = crud.get_socio_by_email(db, email=username)  # Asumimos que 'sub' contiene el email
     if socio is None:
         raise credentials_exception
     return socio
