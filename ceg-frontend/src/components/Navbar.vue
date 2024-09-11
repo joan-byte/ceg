@@ -1,23 +1,37 @@
 <template>
   <nav class="bg-blue-500 p-4" aria-label="Navegación principal">
-    <ul class="flex space-x-4">
-      <li><router-link to="/" class="text-white">Reservas</router-link></li>
-      <li v-if="!isAuthenticated"><router-link to="/register" class="text-white">Register</router-link></li>
-      <li v-if="!isAuthenticated"><router-link to="/login" class="text-white">Login</router-link></li>
-      <li v-if="isAuthenticated"><a @click="handleLogout" class="text-white cursor-pointer">Logout</a></li>
-
-      <template v-if="isAdmin">
-        <li><router-link to="/administradores" class="text-white">Administradores</router-link></li>
-        <li><router-link to="/socios" class="text-white">Socios</router-link></li>
-        <li><router-link to="/pistas" class="text-white">Pistas</router-link></li>
-        <li><router-link to="/reservar" class="text-white">Reservar</router-link></li>
+    <div class="container mx-auto flex justify-between items-center">
+      <div class="flex-1 flex items-center justify-start pl-4">
+        <router-link to="/" class="text-white">Reservas</router-link>
+      </div>
+      <template v-if="isAuthenticated && isAdmin">
+        <div class="flex-1 flex items-center justify-center">
+          <router-link to="/reservar" class="text-white">Reservar</router-link>
+        </div>
+        <div class="flex-1 flex items-center justify-center space-x-4">
+          <router-link to="/administradores" class="text-white">Administradores</router-link>
+          <router-link to="/socios" class="text-white">Socios</router-link>
+          <router-link to="/pistas" class="text-white">Pistas</router-link>
+        </div>
       </template>
-
-      <template v-if="isSocio">
-        <li><router-link to="/mis-reservas" class="text-white">Mis Reservas</router-link></li>
-        <li><router-link to="/reservar" class="text-white">Reservar</router-link></li>
+      <template v-if="isAuthenticated && isSocio">
+        <div class="flex-1 flex items-center justify-center">
+          <router-link to="/reservar" class="text-white">Reservar</router-link>
+        </div>
+        <div class="flex-1 flex items-center justify-center space-x-4">
+          <router-link to="/mis-reservas" class="text-white">Mis Reservas</router-link>
+          <router-link to="/mi-perfil" class="text-white">Mi Perfil</router-link>
+        </div>
       </template>
-    </ul>
+      <div class="flex-1 flex items-center justify-end pr-4">
+        <template v-if="!isAuthenticated">
+          <router-link to="/login" class="text-white">Login</router-link>
+        </template>
+        <template v-else>
+          <a @click="handleLogout" class="text-white cursor-pointer">Logout</a>
+        </template>
+      </div>
+    </div>
   </nav>
   <div v-if="showDebug" class="debug-info">
     <p>Autenticado: {{ isAuthenticated }}</p>
@@ -97,5 +111,10 @@ export default {
   padding: 10px;
   border-radius: 5px;
   font-size: 12px;
+}
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
 }
 </style>
