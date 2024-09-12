@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.auth import get_current_admin, create_access_token
+from app.auth import get_current_admin, create_access_token, router as auth_router
 
 app = FastAPI()
 
@@ -24,27 +24,6 @@ from app.routers.socios import socio_router, admin_socio_router
 from app.routers.jugadores import router as jugadores_router
 from app.routers.pistas import router as pistas_router
 from app.routers.reservas import router as reservas_router
-
-# Crear un router para la autenticación
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from app import crud, schemas
-from app.database import get_db
-
-auth_router = APIRouter()
-
-@auth_router.post("/token_socio", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    socio = crud.authenticate_socio(db, form_data.username, form_data.password)
-    if not socio:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = create_access_token(data={"sub": socio.email, "role": "socio"})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 # Incluir las rutas de autenticación
 app.include_router(auth_router, tags=["authentication"])
