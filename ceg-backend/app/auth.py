@@ -11,6 +11,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 from app import crud, models, schemas
 from app.database import get_db
@@ -93,7 +94,7 @@ async def login_for_access_token_socio(db: Session = Depends(get_db), form_data:
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Función para obtener el socio autenticado
-async def get_current_socio(token: str = Depends(oauth2_scheme_socio), db: Session = Depends(get_db)):
+def get_current_socio(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -101,13 +102,18 @@ async def get_current_socio(token: str = Depends(oauth2_scheme_socio), db: Sessi
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        sub: str = payload.get("sub")
+        role: str = payload.get("role")
+        if sub is None or role is None:
             raise credentials_exception
-        token_data = schemas.TokenData(sub=username, role=payload.get("role"))
+        token_data = schemas.TokenData(sub=sub, role=role)
     except JWTError:
         raise credentials_exception
-    socio = crud.get_socio_by_email(db, email=username)  # Asumimos que 'sub' contiene el email
+    
+    if token_data.role != "socio":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    socio = crud.get_socio_by_email(db, email=token_data.sub)
     if socio is None:
         raise credentials_exception
     return socio

@@ -144,7 +144,32 @@ async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(g
 @router.get("/", response_model=List[schemas.Reserva])
 def read_reservas(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     reservas = crud.get_reservas(db, skip=skip, limit=limit)
-    return reservas
+    now = datetime.now()
+    end = now + timedelta(hours=24)
+    filtered_reservas = [
+        r for r in reservas 
+        if now <= datetime.combine(r.dia, r.hora_inicio) <= end
+    ]
+    return filtered_reservas
+
+@router.get("/mis-reservas", response_model=List[schemas.ReservaConPista])
+async def read_mis_reservas(
+    db: Session = Depends(get_db),
+    current_socio: schemas.Socio = Depends(get_current_socio)
+):
+    logger.info(f"Buscando reservas para el socio: {current_socio.name} {current_socio.lastname}")
+    all_reservas = crud.get_reservas_by_jugador(db, current_socio.name, current_socio.lastname)
+    
+    now = datetime.now()
+    end = now + timedelta(hours=24)
+    
+    filtered_reservas = [
+        r for r in all_reservas 
+        if now <= datetime.combine(r.dia, r.hora_inicio) <= end
+    ]
+    
+    logger.info(f"Encontradas {len(filtered_reservas)} reservas para las próximas 24 horas")
+    return filtered_reservas
 
 @router.get("/{reserva_id}", response_model=schemas.Reserva)
 def read_reserva(reserva_id: int, db: Session = Depends(get_db)):
@@ -159,6 +184,7 @@ def delete_reserva(reserva_id: int, db: Session = Depends(get_db)):
     if not db_reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     return db_reserva
+
 
 @router.put("/{reserva_id}", response_model=schemas.Reserva)
 async def update_reserva(reserva_id: int, reserva: schemas.ReservaUpdateWithJugadores, db: Session = Depends(get_db)):
@@ -229,15 +255,3 @@ def check_solapamiento_pista(
         logger.error(f"Error inesperado: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
 
-@router.get("/mis-reservas", response_model=List[schemas.Reserva])
-def read_mis_reservas(db: Session = Depends(get_db), current_socio: schemas.Socio = Depends(get_current_socio)):
-    if not current_socio:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No se pudo autenticar al socio"
-        )
-    try:
-        reservas = crud.get_reservas_by_socio(db, current_socio.name, current_socio.lastname)
-        return reservas if reservas else []
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")

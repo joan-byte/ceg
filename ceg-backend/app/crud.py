@@ -286,12 +286,12 @@ def get_reserva(db: Session, reserva_id: int):
 def get_reservas(db: Session, skip: int = 0, limit: int = 100):
     today = date.today()
     return db.query(models.Reserva)\
-             .options(joinedload(models.Reserva.jugadores))\
-             .filter(models.Reserva.dia >= today)\
-             .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
-             .offset(skip)\
-             .limit(limit)\
-             .all()
+            .options(joinedload(models.Reserva.jugadores))\
+            .filter(models.Reserva.dia >= today)\
+            .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
 
 
 def create_reserva(db: Session, reserva: schemas.ReservaCreate):
@@ -386,10 +386,10 @@ def delete_reserva(db: Session, reserva_id: int):
         logger.error(f"Error al eliminar reserva: {str(e)}")
         raise
 
-def get_reservas_by_jugador(db: Session, name: str, apellido: str):
+def get_reservas_by_jugador(db: Session, name: str, lastname: str):
     return db.query(models.Reserva).join(models.Jugador).filter(
         models.Jugador.name == name,
-        models.Jugador.apellido == apellido
+        models.Jugador.apellido == lastname
     ).all()
 
 def create_jugador(db: Session, jugador: schemas.JugadorCreate):

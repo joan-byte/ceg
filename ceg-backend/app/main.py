@@ -38,7 +38,7 @@ app.include_router(admin_socio_router, prefix="/admin/socios", dependencies=[Dep
 app.include_router(admin_router, prefix="/admin", dependencies=[Depends(get_current_admin)])
 app.include_router(jugadores_router, prefix="/jugadores")
 app.include_router(pistas_router, prefix="/pistas")
-app.include_router(reservas_router, prefix="/reservas")
+app.include_router(reservas_router, prefix="/reservas", tags=["reservas"])
 
 @app.on_event("startup")
 async def startup_event():

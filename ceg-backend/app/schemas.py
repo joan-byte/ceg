@@ -172,9 +172,23 @@ class Pista(PistaBase):
     class Config:
         from_attributes = True
 
+class ReservaConPista(BaseModel):
+    id: int
+    dia: date
+    hora_inicio: time
+    hora_fin: time
+    pista: Pista
+    jugadores: List[Jugador]
+    individuales: bool
+
+    class Config:
+        from_attributes = True
+
 class SocioUpdateMe(BaseModel):
     name: Optional[str] = None
     lastname: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     password: Optional[str] = None
+
+
