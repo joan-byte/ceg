@@ -70,6 +70,7 @@ import '../styles/reservas.css';
 import { useRouter, useRoute } from 'vue-router';
 
 export default {
+  name: 'Reservas',
   setup() {
     const router = useRouter();
     const route = useRoute();
@@ -108,10 +109,12 @@ export default {
     }
   },
   watch: {
-    'reserva.pista_id': function(newVal) {
-      if (newVal) {
-        this.reserva.individuales = this.pistaSeleccionada.individuales;
-      }
+    'reserva.pista_id': {
+      handler(newVal) {
+        console.log('Pista seleccionada:', newVal);
+        // Aquí puedes añadir lógica adicional si es necesario
+      },
+      immediate: true
     }
   },
   methods: {
@@ -304,7 +307,6 @@ export default {
         return;
       }
 
-      // Imprimir los datos antes de enviar para verificar
       console.log('Datos de la reserva antes de enviar:', JSON.stringify(this.reserva, null, 2));
       console.log('Datos de los jugadores antes de enviar:', JSON.stringify(this.jugadores, null, 2));
 
@@ -321,20 +323,27 @@ export default {
 
       try {
         let response;
+        const esMiReserva = this.route.name === 'EditarMiReserva';
+        
         if (this.isEditing) {
-          response = await axios.put(`http://localhost:8000/reservas/${this.reservaId}`, reservaData);
+          if (esMiReserva) {
+            response = await axios.put(`http://localhost:8000/reservas/mis-reservas/${this.reservaId}`, reservaData, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+          } else {
+            response = await axios.put(`http://localhost:8000/reservas/${this.reservaId}`, reservaData);
+          }
         } else {
           response = await axios.post('http://localhost:8000/reservas/', reservaData);
         }
         console.log("Respuesta del servidor:", response.data);
         console.log("Jugadores actualizados:", response.data.jugadores);
 
-        // Actualizar el estado local con los datos recibidos
         this.reserva = {
           pista_id: response.data.pista_id,
           dia: response.data.dia,
-          hora_inicio: response.data.hora_inicio.slice(0, 5),  // Asegura formato HH:MM
-          hora_fin: response.data.hora_fin.slice(0, 5),  // Asegura formato HH:MM
+          hora_inicio: response.data.hora_inicio.slice(0, 5),
+          hora_fin: response.data.hora_fin.slice(0, 5),
           individuales: response.data.individuales
         };
         this.jugadores = response.data.jugadores.map(j => ({
@@ -343,20 +352,18 @@ export default {
           tipo_jugador: j.tipo_jugador
         }));
 
-        // Asegurarse de que siempre haya 4 jugadores en el array
         while (this.jugadores.length < 4) {
           this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
         }
 
         alert(this.isEditing ? "Reserva modificada con éxito" : "Reserva guardada con éxito");
         
-        // Esperar un momento antes de redireccionar
         setTimeout(() => {
           this.handleReset();
-          if (this.userRole === 'socio') {
+          if (esMiReserva) {
             this.router.push('/mis-reservas');
           } else {
-            this.router.push('/'); // Mantiene la redirección original para administradores
+            this.router.push('/');
           }
         }, 500);
       } catch (error) {
@@ -377,20 +384,23 @@ export default {
         this.reserva = {
           pista_id: reserva.pista_id,
           dia: reserva.dia,
-          hora_inicio: reserva.hora_inicio.slice(0, 5),  // Asegura formato HH:MM
-          hora_fin: reserva.hora_fin.slice(0, 5),  // Asegura formato HH:MM
+          hora_inicio: reserva.hora_inicio.slice(0, 5),
+          hora_fin: reserva.hora_fin.slice(0, 5),
           individuales: reserva.individuales
         };
-        this.jugadores = reserva.jugadores.map(j => ({
+        this.jugadores = reserva.jugadores.map((j, index) => ({
           name: j.name,
           apellido: j.apellido,
-          tipo_jugador: j.tipo_jugador
+          tipo_jugador: j.tipo_jugador,
+          readonly: index === 0 && this.userRole === 'socio'
         }));
         while (this.jugadores.length < 4) {
-          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '' });
+          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '', readonly: false });
         }
         this.isEditing = true;
         this.reservaId = id;
+        console.log('Reserva cargada:', this.reserva);
+        console.log('Jugadores cargados:', this.jugadores);
       } catch (error) {
         console.error("Error al cargar la reserva:", error);
         alert("Error al cargar la reserva. Por favor, intente nuevamente.");
@@ -430,16 +440,67 @@ export default {
       } else {
         console.log('No se rellenaron los datos del primer jugador');
       }
+    },
+    async determinarModoEdicion() {
+      const id = this.route.params.id;
+      const esMiReserva = this.route.name === 'EditarMiReserva';
+
+      await this.fetchPistas(); // Asegúrate de que las pistas se carguen primero
+
+      if (id) {
+        if (esMiReserva) {
+          await this.cargarMiReserva(id);
+        } else {
+          await this.cargarReserva(id);
+        }
+      } else {
+        await this.obtenerSocioActual();
+      }
+    },
+    async cargarMiReserva(id) {
+      try {
+        const response = await axios.get(`http://localhost:8000/reservas/mis-reservas/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        this.configurarReservaParaEdicion(response.data);
+        this.$forceUpdate(); // Fuerza una actualización del componente
+      } catch (error) {
+        console.error("Error al cargar mi reserva:", error);
+        if (error.response && error.response.status === 404) {
+          alert("La reserva no fue encontrada. Puede que haya sido eliminada.");
+        } else if (error.response && error.response.status === 403) {
+          alert("No tienes permiso para ver esta reserva.");
+        } else {
+          alert("Error al cargar la reserva. Por favor, intente nuevamente.");
+        }
+        this.router.push('/mis-reservas');
+      }
+    },
+    configurarReservaParaEdicion(reserva) {
+      this.reserva = {
+        pista_id: reserva.pista.id, // Asegúrate de que esto sea correcto
+        dia: reserva.dia,
+        hora_inicio: reserva.hora_inicio.slice(0, 5),
+        hora_fin: reserva.hora_fin.slice(0, 5),
+        individuales: reserva.individuales
+      };
+      this.jugadores = reserva.jugadores.map((j, index) => ({
+        name: j.name,
+        apellido: j.apellido,
+        tipo_jugador: j.tipo_jugador,
+        readonly: index === 0
+      }));
+      while (this.jugadores.length < 4) {
+        this.jugadores.push({ name: '', apellido: '', tipo_jugador: '', readonly: false });
+      }
+      this.isEditing = true;
+      this.reservaId = reserva.id;
     }
   },
-  async mounted() {
-    await this.fetchPistas();
-    const id = this.route.params.id;
-    if (id) {
-      await this.cargarReserva(id);
-    } else {
-      await this.obtenerSocioActual();
-    }
+  mounted() {
+    this.$nextTick(() => {
+      this.determinarModoEdicion();
+    });
   }
 };
 </script>

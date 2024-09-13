@@ -14,10 +14,11 @@ const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register },
-  { 
-    path: '/reservas', 
-    name: 'Reservas', 
-    component: Reservas, 
+  {
+    path: '/reservar/:id?',
+    name: 'Reservar',
+    component: Reservas,
+    props: true,
     meta: { requiresAuth: true }
   },
   {
@@ -44,16 +45,21 @@ const routes = [
     component: Pistas, 
     meta: { requiresAuth: true }
   },
-  { 
-    path: '/mis-reservas', 
-    name: 'MisReservas', 
-    component: MisReservas, 
-    meta: { requiresAuth: true, requiresSocio: true }
+  {
+    path: '/mis-reservas/editar/:id',
+    name: 'EditarMiReserva',
+    component: Reservas
   },
   { 
     path: '/reservar', 
     name: 'Reservar', 
     component: Reservas, 
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/mis-reservas', 
+    name: 'MisReservas', 
+    component: MisReservas, 
     meta: { requiresAuth: true }
   },
   {
@@ -67,7 +73,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

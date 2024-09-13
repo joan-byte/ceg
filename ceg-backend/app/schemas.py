@@ -87,8 +87,13 @@ class ReservaCreate(ReservaBase):
                     raise ValueError('Para pistas que no permiten partidas individuales, debe haber exactamente 4 jugadores con datos completos')
         return v  # Lista de jugadores en la reserva
 
-class ReservaUpdate(ReservaBase):
-    jugadores: List[JugadorReserva]  # Lista de jugadores en la reserva
+class ReservaUpdate(BaseModel):
+    pista_id: int
+    dia: date
+    hora_inicio: time
+    hora_fin: time
+    individuales: bool
+    jugadores: List[JugadorCreate]
 
 class Reserva(ReservaBase):
     id: int

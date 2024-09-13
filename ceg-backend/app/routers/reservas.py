@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -209,6 +209,46 @@ async def update_reserva(reserva_id: int, reserva: schemas.ReservaUpdateWithJuga
     except Exception as e:
         logger.error(f"Error inesperado al actualizar la reserva: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+    
+@router.put("/mis-reservas/{reserva_id}", response_model=schemas.ReservaConPista)
+async def update_mi_reserva(
+    reserva_id: int,
+    reserva: schemas.ReservaUpdate,
+    db: Session = Depends(get_db),
+    current_socio: schemas.Socio = Depends(get_current_socio)
+):
+    logger.info(f"Recibida solicitud para actualizar reserva {reserva_id}")
+    logger.info(f"Datos de la reserva: {reserva.dict()}")
+    logger.info(f"Tipo de hora_inicio: {type(reserva.hora_inicio)}")
+    logger.info(f"Valor de hora_inicio: {reserva.hora_inicio}")
+
+    db_reserva = crud.get_reserva(db, reserva_id=reserva_id)
+    if not db_reserva:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    
+    # Verificar que la reserva pertenece al socio actual
+    if not any(j.name == current_socio.name and j.apellido == current_socio.lastname for j in db_reserva.jugadores):
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta reserva")
+    
+    # Verificar que la reserva esté dentro de las próximas 24 horas
+    ahora = datetime.now()
+    fecha_reserva = datetime.combine(reserva.dia, reserva.hora_inicio)
+    if fecha_reserva < ahora or fecha_reserva > ahora + timedelta(hours=24):
+        raise HTTPException(status_code=400, detail="Las reservas solo se pueden modificar entre ahora y las próximas 24 horas.")
+
+    # Utilizar la función verificar_reserva para validar la reserva
+    errores = verificar_reserva(db, reserva, reserva_id)
+    if errores:
+        raise HTTPException(status_code=400, detail="; ".join(errores))
+
+    # Actualizar la reserva
+    try:
+        updated_reserva = crud.update_reserva(db, reserva_id=reserva_id, reserva=reserva)
+        logger.info(f"Reserva {reserva_id} actualizada con éxito")
+        return updated_reserva
+    except Exception as e:
+        logger.error(f"Error al actualizar la reserva {reserva_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno al actualizar la reserva: {str(e)}")
 
 @router.get("/verificar_solapamiento_jugador/")
 def check_solapamiento_jugador(
@@ -254,4 +294,20 @@ def check_solapamiento_pista(
     except Exception as e:
         logger.error(f"Error inesperado: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+
+@router.get("/mis-reservas/{reserva_id}", response_model=schemas.ReservaConPista)
+async def read_mi_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    current_socio: schemas.Socio = Depends(get_current_socio)
+):
+    reserva = crud.get_reserva(db, reserva_id=reserva_id)
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    
+    # Verificar que la reserva pertenece al socio actual
+    if not any(j.name == current_socio.name and j.apellido == current_socio.lastname for j in reserva.jugadores):
+        raise HTTPException(status_code=403, detail="No tienes permiso para ver esta reserva")
+    
+    return reserva
 
