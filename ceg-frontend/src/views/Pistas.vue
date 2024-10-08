@@ -102,11 +102,18 @@ export default {
         });
         const index = this.pistas.findIndex(p => p.id === this.currentPista.id);
         if (index !== -1) {
-          this.$set(this.pistas, index, response.data);
+          this.pistas[index] = response.data;
         }
         this.resetForm();
+        // Añadir un mensaje de éxito
+        alert('Pista actualizada con éxito');
+        // Recargar la página después de un breve retraso
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } catch (error) {
         console.error('Error updating pista:', error);
+        alert('Error al actualizar la pista. Por favor, intente nuevamente.');
       }
     },
     editPista(pista) {

@@ -142,15 +142,25 @@ async def create_reserva(reserva: schemas.ReservaCreate, db: Session = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[schemas.Reserva])
-def read_reservas(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    reservas = crud.get_reservas(db, skip=skip, limit=limit)
-    now = datetime.now()
-    end = now + timedelta(hours=24)
-    filtered_reservas = [
-        r for r in reservas 
-        if now <= datetime.combine(r.dia, r.hora_inicio) <= end
-    ]
-    return filtered_reservas
+def read_reservas(db: Session = Depends(get_db)):
+    try:
+        ahora = datetime.now()
+        limite = ahora + timedelta(hours=24)
+        
+        reservas = db.query(models.Reserva).filter(
+            ((models.Reserva.dia == ahora.date()) & (models.Reserva.hora_fin > ahora.time())) |
+            ((models.Reserva.dia > ahora.date()) & (models.Reserva.dia < limite.date())) |
+            ((models.Reserva.dia == limite.date()) & (models.Reserva.hora_inicio <= limite.time()))
+        ).order_by(models.Reserva.dia, models.Reserva.hora_inicio).all()
+        
+        logger.info(f"Número de reservas encontradas: {len(reservas)}")
+        for reserva in reservas:
+            logger.info(f"Reserva: ID={reserva.id}, Día={reserva.dia}, Hora inicio={reserva.hora_inicio}")
+        
+        return reservas
+    except Exception as e:
+        logger.error(f"Error en read_reservas: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/mis-reservas", response_model=List[schemas.ReservaConPista])
 async def read_mis_reservas(
@@ -310,4 +320,8 @@ async def read_mi_reserva(
         raise HTTPException(status_code=403, detail="No tienes permiso para ver esta reserva")
     
     return reserva
+
+
+
+
 

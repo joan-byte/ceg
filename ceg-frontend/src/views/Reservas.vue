@@ -8,7 +8,7 @@
         <div class="w-1/2 pr-2">
           <label for="pista" class="block text-gray-700">Elige Pista:</label>
           <select v-model="reserva.pista_id" id="pista" name="pista" class="w-full p-2 border rounded" required>
-            <option value="" disabled selected>Elige una opción</option>
+            <option value="" disabled>Elige una opción</option>
             <option v-for="pista in pistas" :key="pista.id" :value="pista.id">
               {{ pista.name }}
             </option>
@@ -380,31 +380,18 @@ export default {
     },
     async cargarReserva(id) {
       try {
-        const response = await axios.get(`http://localhost:8000/reservas/${id}`);
-        const reserva = response.data;
-        this.reserva = {
-          pista_id: reserva.pista_id,
-          dia: reserva.dia,
-          hora_inicio: reserva.hora_inicio.slice(0, 5),
-          hora_fin: reserva.hora_fin.slice(0, 5),
-          individuales: reserva.individuales
-        };
-        this.jugadores = reserva.jugadores.map((j, index) => ({
-          name: j.name,
-          apellido: j.apellido,
-          tipo_jugador: j.tipo_jugador,
-          readonly: index === 0 && this.userRole === 'socio'
-        }));
-        while (this.jugadores.length < 4) {
-          this.jugadores.push({ name: '', apellido: '', tipo_jugador: '', readonly: false });
-        }
-        this.isEditing = true;
-        this.reservaId = id;
-        console.log('Reserva cargada:', this.reserva);
-        console.log('Jugadores cargados:', this.jugadores);
+        const response = await axios.get(`http://localhost:8000/reservas/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        const reservaData = response.data;
+        this.configurarReservaParaEdicion({
+          ...reservaData,
+          pista: { id: reservaData.pista_id } // Aseguramos que pista.id esté disponible
+        });
       } catch (error) {
         console.error("Error al cargar la reserva:", error);
         alert("Error al cargar la reserva. Por favor, intente nuevamente.");
+        this.router.push('/');
       }
     },
     async obtenerSocioActual() {
@@ -443,18 +430,22 @@ export default {
       }
     },
     async determinarModoEdicion() {
-      const id = this.route.params.id;
-      const esMiReserva = this.route.name === 'EditarMiReserva';
+      const id = this.$route.params.id;
+      const esMiReserva = this.$route.name === 'EditarMiReserva';
+      const esEditarReserva = this.$route.name === 'EditarReserva';
 
-      await this.fetchPistas(); // Asegúrate de que las pistas se carguen primero
+      await this.fetchPistas();
 
-      if (id) {
+      if (id && (esMiReserva || esEditarReserva)) {
+        this.isEditing = true;
+        this.reservaId = id;
         if (esMiReserva) {
           await this.cargarMiReserva(id);
         } else {
           await this.cargarReserva(id);
         }
       } else {
+        this.resetForm();
         await this.obtenerSocioActual();
       }
     },
@@ -464,6 +455,7 @@ export default {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         this.configurarReservaParaEdicion(response.data);
+        await this.fetchPistas(); // Asegúrate de que las pistas se carguen
         this.$forceUpdate(); // Fuerza una actualización del componente
       } catch (error) {
         console.error("Error al cargar mi reserva:", error);
@@ -479,7 +471,7 @@ export default {
     },
     configurarReservaParaEdicion(reserva) {
       this.reserva = {
-        pista_id: reserva.pista.id, // Asegúrate de que esto sea correcto
+        pista_id: reserva.pista.id,
         dia: reserva.dia,
         hora_inicio: reserva.hora_inicio.slice(0, 5),
         hora_fin: reserva.hora_fin.slice(0, 5),
@@ -496,11 +488,30 @@ export default {
       }
       this.isEditing = true;
       this.reservaId = reserva.id;
+      console.log('Reserva configurada para edición:', this.reserva);
+    },
+    resetForm() {
+      this.reserva = {
+        pista_id: '',
+        dia: '',
+        hora_inicio: '',
+        hora_fin: '',
+        individuales: false
+      };
+      this.jugadores = [
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false }
+      ];
+      this.isEditing = false;
+      this.reservaId = null;
     }
   },
   mounted() {
-    this.$nextTick(() => {
-      this.determinarModoEdicion();
+    this.$nextTick(async () => {
+      await this.fetchPistas();
+      await this.determinarModoEdicion();
     });
   }
 };

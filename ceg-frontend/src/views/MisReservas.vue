@@ -107,7 +107,7 @@ export default {
         params: { id: reservaId.toString() }
       }).catch(err => {
         if (err.name !== 'NavigationDuplicated') {
-          console.error(err)
+          console.error(err);
         }
       });
     },

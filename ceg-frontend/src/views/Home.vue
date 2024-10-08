@@ -8,39 +8,36 @@
     <div v-if="isLoading" class="text-center py-4">
       <p>Cargando reservas...</p>
     </div>
-    <div v-else-if="Object.keys(reservasAgrupadasPorPista).length === 0" class="text-center py-4">
+    <div v-if="Object.keys(reservasAgrupadasPorPista).length === 0" class="text-center py-4">
       <p>No hay reservas disponibles en las próximas 24 horas.</p>
     </div>
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <div v-for="(pistaReservas, pistaId) in reservasAgrupadasPorPista" :key="pistaId" class="mb-6">
+      <div v-for="(pistaReservas, pistaId) in reservasAgrupadasPorPista" :key="pistaId" class="flex flex-col">
         <h2 class="text-xl font-semibold mb-3">{{ getNombrePista(pistaId) }}</h2>
-        <div class="grid grid-cols-1 gap-4">
-          <div v-for="reserva in pistaReservas" :key="reserva.id" class="bg-white shadow-md rounded-lg p-4 flex flex-col justify-between h-64 w-full">
-            <div class="flex flex-col h-full">
-              <div class="font-bold">{{ formatDate(reserva.dia) }}</div>
-              <div>
-                {{ formatTime(reserva.hora_inicio) }} - {{ formatTime(reserva.hora_fin) }}
-                <span v-if="reservaEnCurso(reserva)" class="ml-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">En curso</span>
-              </div>
-              <div class="flex-grow overflow-y-auto">
-                <div v-for="jugador in reserva.jugadores" :key="jugador.id" class="text-sm">
+        <div class="flex-grow flex flex-col gap-4">
+          <div v-for="reserva in pistaReservas" :key="reserva.id" 
+               class="bg-white shadow-md rounded-lg p-4 mb-4 flex flex-col justify-between h-64">
+            <div>
+              <p class="mb-1">{{ formatDate(reserva.dia) }}</p>
+              <p class="mb-1">{{ formatTime(reserva.hora_inicio) }} - {{ formatTime(reserva.hora_fin) }}</p>
+              <p v-if="isReservaEnCurso(reserva)" class="text-green-600 font-bold mb-1">En curso</p>
+              <ul class="list-disc list-inside overflow-y-auto max-h-24">
+                <li v-for="jugador in reserva.jugadores" :key="jugador.id">
                   {{ jugador.name }} {{ jugador.apellido }} ({{ jugador.tipo_jugador }})
-                </div>
-              </div>
+                </li>
+              </ul>
             </div>
-            <div v-if="isAdmin" class="mt-2 flex space-x-2">
-              <button @click="editReserva(reserva)" class="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">Modificar</button>
-              <button @click="deleteReserva(reserva.id)" class="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">Eliminar</button>
+            <div v-if="isAdmin" class="mt-2 flex justify-end space-x-2">
+              <button @click="editReserva(reserva.id)" class="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                Modificar
+              </button>
+              <button @click="deleteReserva(reserva.id)" class="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div v-if="userRoleLoaded" class="mt-4 text-sm">
-      Estado de usuario: {{ userRole ? (userRole === 'admin' ? 'Administrador' : (userRole === 'socio' ? 'Socio' : 'No autenticado')) : 'No autenticado' }}
-    </div>
-    <div v-else>
-      Cargando...
     </div>
   </div>
 </template>
@@ -100,9 +97,21 @@ export default {
     const fetchReservas = async () => {
       try {
         const response = await axios.get('http://localhost:8000/reservas/');
-        reservas.value = response.data;
+        console.log('Reservas recibidas:', response.data);
+        reservas.value = response.data.map(r => ({
+          ...r,
+          dia: new Date(r.dia),
+          hora_inicio: r.hora_inicio.slice(0, 5),
+          hora_fin: r.hora_fin.slice(0, 5)
+        }));
+        console.log('Reservas procesadas:', reservas.value);
       } catch (err) {
         console.error('Error al obtener las reservas:', err);
+        if (err.response) {
+          console.error('Datos del error:', JSON.stringify(err.response.data, null, 2));
+          console.error('Estado del error:', err.response.status);
+          console.error('Cabeceras del error:', err.response.headers);
+        }
         error.value = 'Error al cargar las reservas. Por favor, intente más tarde.';
       } finally {
         isLoading.value = false;
@@ -123,36 +132,13 @@ export default {
     };
 
     const reservasAgrupadasPorPista = computed(() => {
-      if (!reservas.value.length) return {};
-      
-      const ahora = new Date();
-      const en24Horas = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
-      
-      const reservasFiltradas = reservas.value.filter(reserva => {
-        const fechaHoraInicio = new Date(reserva.dia + 'T' + reserva.hora_inicio);
-        const fechaHoraFin = new Date(reserva.dia + 'T' + reserva.hora_fin);
-        
-        return (fechaHoraInicio <= ahora && fechaHoraFin > ahora) || 
-               (fechaHoraInicio > ahora && fechaHoraInicio < en24Horas);
-      });
-
       const agrupadas = {};
-      reservasFiltradas.forEach(reserva => {
-        const pistaId = reserva.pista_id;
-        if (!agrupadas[pistaId]) {
-          agrupadas[pistaId] = [];
+      reservas.value.forEach(reserva => {
+        if (!agrupadas[reserva.pista_id]) {
+          agrupadas[reserva.pista_id] = [];
         }
-        agrupadas[pistaId].push(reserva);
+        agrupadas[reserva.pista_id].push(reserva);
       });
-
-      for (let pista in agrupadas) {
-        agrupadas[pista].sort((a, b) => {
-          const dateA = new Date(a.dia + 'T' + a.hora_inicio);
-          const dateB = new Date(b.dia + 'T' + b.hora_inicio);
-          return dateA - dateB;
-        });
-      }
-
       return agrupadas;
     });
 
@@ -160,25 +146,30 @@ export default {
       return pistas.value[pistaId] || `Pista ${pistaId}`;
     };
 
-    const reservaEnCurso = (reserva) => {
+    const isReservaEnCurso = (reserva) => {
       const ahora = new Date();
-      const fechaHoraInicio = new Date(reserva.dia + 'T' + reserva.hora_inicio);
-      const fechaHoraFin = new Date(reserva.dia + 'T' + reserva.hora_fin);
-      return fechaHoraInicio <= ahora && fechaHoraFin > ahora;
+      const fechaReserva = new Date(reserva.dia);
+      const horaInicio = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
+                               ...reserva.hora_inicio.split(':').map(Number));
+      const horaFin = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
+                           ...reserva.hora_fin.split(':').map(Number));
+
+      return fechaReserva.toDateString() === ahora.toDateString() &&
+             ahora >= horaInicio && ahora <= horaFin;
     };
 
     const formatDate = (dateString) => {
-      const options = { weekday: 'long', day: 'numeric', month: 'long' };
-      return new Date(dateString).toLocaleDateString('es-ES', options);
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
     };
 
     const formatTime = (timeString) => {
       return timeString.slice(0, 5);
     };
 
-    const editReserva = (reserva) => {
+    const editReserva = (reservaId) => {
       if (isAdmin.value) {
-        router.push({ name: 'EditarReserva', params: { id: reserva.id } });
+        router.push({ name: 'EditarReserva', params: { id: reservaId.toString() } });
       }
     };
 
@@ -214,7 +205,7 @@ export default {
     return {
       reservasAgrupadasPorPista,
       getNombrePista,
-      reservaEnCurso,
+      isReservaEnCurso,
       formatDate,
       formatTime,
       error,
@@ -228,13 +219,15 @@ export default {
     };
   },
   async mounted() {
+    console.log("Home component mounted");
     await this.cargarReservasActualizadas();
   },
   methods: {
     async cargarReservasActualizadas() {
+      console.log("Cargando reservas...");
       try {
         const response = await axios.get('http://localhost:8000/reservas/');
-        // Actualizar el estado con las reservas más recientes
+        console.log("Reservas recibidas:", response.data);
         this.reservas = response.data;
       } catch (error) {
         console.error("Error al cargar las reservas:", error);
