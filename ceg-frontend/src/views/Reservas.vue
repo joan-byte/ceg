@@ -294,11 +294,11 @@ export default {
 
       if (this.pistaSeleccionada.individuales) {
         if (jugadoresCompletos.length !== 2 && jugadoresCompletos.length !== 4) {
-          this.errores.push("Para una pista individual, debe haber 2 o 4 jugadores completos.");
+          this.errores.push("Para una pista que permite individuales, debe haber 2 o 4 jugadores completos.");
         }
       } else {
         if (jugadoresCompletos.length !== 4) {
-          this.errores.push("Para una pista no individual, debe haber exactamente 4 jugadores completos.");
+          this.errores.push("Para una pista que no permite individuales, debe haber exactamente 4 jugadores completos.");
         }
       }
 
@@ -312,6 +312,7 @@ export default {
 
       const reservaData = {
         ...this.reserva,
+        individuales: this.pistaSeleccionada.individuales, // Asegúrate de que este valor sea correcto
         jugadores: jugadoresCompletos.map(jugador => ({
           name: jugador.name,
           apellido: jugador.apellido,

@@ -61,4 +61,15 @@ def verificar_reserva(db: Session, reserva: Union[schemas.ReservaCreate, schemas
     if reservas_solapadas_pista:
         errores.append("La pista ya está reservada en ese horario.")
 
+    # Verificar la cantidad de jugadores según el tipo de pista
+    pista = db.query(models.Pista).filter(models.Pista.id == reserva.pista_id).first()
+    jugadores_completos = [j for j in reserva.jugadores if j.name and j.apellido]
+    
+    if pista.individuales:
+        if len(jugadores_completos) not in [2, 4]:
+            errores.append("Para una pista que permite individuales, debe haber 2 o 4 jugadores con datos completos.")
+    else:
+        if len(jugadores_completos) != 4:
+            errores.append("Para una pista que no permite individuales, debe haber exactamente 4 jugadores con datos completos.")
+
     return errores
