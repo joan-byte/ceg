@@ -3,8 +3,8 @@
     <div class="container mx-auto">
       <!-- Botón de menú móvil -->
       <div class="flex items-center justify-between md:hidden">
-        <router-link to="/" class="text-white font-bold">Club Esportiu Garraf</router-link>
-        <button @click="toggleMenu" class="text-white focus:outline-none ml-4">
+        <router-link to="/" class="text-white font-bold whitespace-nowrap">Club Esportiu Garraf</router-link>
+        <button @click="toggleMenu" class="text-white focus:outline-none ml-auto pl-8">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path v-if="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -127,5 +127,12 @@ export default {
 .router-link-active {
   font-weight: bold;
   text-decoration: underline;
+}
+
+/* Asegurar que el texto no se rompa en móviles */
+@media (max-width: 768px) {
+  .whitespace-nowrap {
+    letter-spacing: -0.01em;
+  }
 }
 </style>
