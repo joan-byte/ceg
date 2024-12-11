@@ -79,7 +79,7 @@ export default {
       this.isLoading = true;
       this.errorMessage = '';
       try {
-        const response = await axios.get('http://localhost:8000/reservas/mis-reservas', {
+        const response = await axios.get('http://192.168.10.21:8000/reservas/mis-reservas', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         this.reservas = response.data;
@@ -114,7 +114,7 @@ export default {
     async deleteReserva(reservaId) {
       if (confirm('¿Está seguro de que desea eliminar esta reserva?')) {
         try {
-          await axios.delete(`http://localhost:8000/reservas/${reservaId}`, {
+          await axios.delete(`http://192.168.10.21:8000/reservas/${reservaId}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           await this.fetchMisReservas(); // Recargar las reservas después de eliminar
@@ -129,7 +129,7 @@ export default {
     },
     async fetchPistas() {
       try {
-        const response = await axios.get('http://localhost:8000/pistas/');
+        const response = await axios.get('http://192.168.10.21:8000/pistas/');
         this.pistas = response.data.reduce((acc, pista) => {
           acc[pista.id] = pista.name;
           return acc;

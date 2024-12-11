@@ -40,9 +40,9 @@ export default {
         try {
           let userInfo;
           if (userRole === 'admin') {
-            userInfo = await this.getUserInfo('http://localhost:8000/admin/me');
+            userInfo = await this.getUserInfo('http://192.168.10.21:8000/admin/me');
           } else if (userRole === 'socio') {
-            userInfo = await this.getUserInfo('http://localhost:8000/socios/me');
+            userInfo = await this.getUserInfo('http://192.168.10.21:8000/socios/me');
           }
           
           if (userInfo) {

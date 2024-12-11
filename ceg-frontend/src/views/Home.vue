@@ -27,7 +27,7 @@
                 </li>
               </ul>
             </div>
-            <div v-if="isAdmin" class="mt-2 flex justify-end space-x-2">
+            <div v-if="mostrarBotonesAdmin" class="mt-2 flex justify-end space-x-2">
               <button @click="editReserva(reserva.id)" class="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
                 Modificar
               </button>
@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
@@ -53,64 +53,40 @@ export default {
     const pistas = ref({});
     const error = ref(null);
     const isLoading = ref(true);
-    const isAdmin = ref(false);
-    const userRole = ref(null);
-    const userRoleLoaded = ref(false);
+    const mostrarBotonesAdmin = ref(false);
     const router = useRouter();
 
-    const checkUserStatus = async () => {
-      const token = localStorage.getItem('token');
-      const storedUserRole = localStorage.getItem('userRole');
+    const verificarAdmin = async () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
 
-      if (!token || !storedUserRole) {
-        console.log('No hay token o rol de usuario');
-        userRole.value = null;
-        isAdmin.value = false;
-      } else {
-        try {
-          if (storedUserRole === 'admin') {
-            const response = await axios.get('http://localhost:8000/admin/check-role', {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            isAdmin.value = response.data.is_admin;
-            userRole.value = 'admin';
-          } else if (storedUserRole === 'socio') {
-            const response = await axios.get('http://localhost:8000/socios/me', {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.data) {
-              userRole.value = 'socio';
-            }
-          }
-        } catch (err) {
-          console.error('Error al verificar el estado de usuario:', err);
-          userRole.value = null;
-          isAdmin.value = false;
-          localStorage.removeItem('token');
-          localStorage.removeItem('userRole');
-        }
+      if (!token || userRole !== 'admin') {
+        mostrarBotonesAdmin.value = false;
+        return;
       }
-      userRoleLoaded.value = true;
+
+      try {
+        const response = await axios.get('http://192.168.10.21:8000/admin/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        mostrarBotonesAdmin.value = !!response.data;
+      } catch (error) {
+        console.error('Error verificando admin:', error);
+        mostrarBotonesAdmin.value = false;
+      }
     };
 
     const fetchReservas = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/reservas/');
-        console.log('Reservas recibidas:', response.data);
+        const response = await axios.get('http://192.168.10.21:8000/reservas/');
         reservas.value = response.data.map(r => ({
           ...r,
           dia: new Date(r.dia),
           hora_inicio: r.hora_inicio.slice(0, 5),
           hora_fin: r.hora_fin.slice(0, 5)
         }));
-        console.log('Reservas procesadas:', reservas.value);
       } catch (err) {
         console.error('Error al obtener las reservas:', err);
-        if (err.response) {
-          console.error('Datos del error:', JSON.stringify(err.response.data, null, 2));
-          console.error('Estado del error:', err.response.status);
-          console.error('Cabeceras del error:', err.response.headers);
-        }
         error.value = 'Error al cargar las reservas. Por favor, intente más tarde.';
       } finally {
         isLoading.value = false;
@@ -119,7 +95,7 @@ export default {
 
     const fetchPistas = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/pistas/');
+        const response = await axios.get('http://192.168.10.21:8000/pistas/');
         pistas.value = response.data.reduce((acc, pista) => {
           acc[pista.id] = pista.name;
           return acc;
@@ -167,71 +143,46 @@ export default {
     };
 
     const editReserva = (reservaId) => {
-      if (isAdmin.value) {
+      if (mostrarBotonesAdmin.value) {
         router.push({ name: 'EditarReserva', params: { id: reservaId.toString() } });
       }
     };
 
     const deleteReserva = async (reservaId) => {
-      if (isAdmin.value && confirm('¿Está seguro de que desea eliminar esta reserva?')) {
+      if (!mostrarBotonesAdmin.value) return;
+
+      if (confirm('¿Está seguro de que desea eliminar esta reserva?')) {
         try {
-          const token = localStorage.getItem('token');
-          await axios.delete(`http://localhost:8000/reservas/${reservaId}`, {
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          await axios.delete(`http://192.168.10.21:8000/reservas/${reservaId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           await fetchReservas();
         } catch (err) {
           console.error('Error al eliminar la reserva:', err);
           error.value = 'Error al eliminar la reserva. Por favor, intente nuevamente.';
-          if (err.response && err.response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('userRole');
-            isAdmin.value = false;
-          }
         }
       }
     };
 
     onMounted(async () => {
-      await checkUserStatus();
+      await verificarAdmin();
       await Promise.all([fetchPistas(), fetchReservas()]);
     });
 
-    watch(userRole, (newValue) => {
-      console.log('userRole cambió a:', newValue);
-    });
-
     return {
+      reservas,
+      error,
+      isLoading,
+      mostrarBotonesAdmin,
       reservasAgrupadasPorPista,
       getNombrePista,
       isReservaEnCurso,
       formatDate,
       formatTime,
-      error,
-      isLoading,
-      isAdmin,
-      userRole,
-      userRoleLoaded,
       editReserva,
-      deleteReserva,
-      checkUserStatus
+      deleteReserva
     };
-  },
-  async mounted() {
-    console.log("Home component mounted");
-    await this.cargarReservasActualizadas();
-  },
-  methods: {
-    async cargarReservasActualizadas() {
-      console.log("Cargando reservas...");
-      try {
-        const response = await axios.get('http://localhost:8000/reservas/');
-        console.log("Reservas recibidas:", response.data);
-        this.reservas = response.data;
-      } catch (error) {
-        console.error("Error al cargar las reservas:", error);
-      }
-    }
   }
 };
 </script>

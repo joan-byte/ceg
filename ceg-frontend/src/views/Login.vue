@@ -59,8 +59,8 @@ export default {
       this.errorMessage = '';
       try {
         const tokenUrl = this.role === 'admin' 
-          ? 'http://localhost:8000/token_admin' 
-          : 'http://localhost:8000/token_socio';
+          ? 'http://192.168.10.21:8000/token_admin' 
+          : 'http://192.168.10.21:8000/token_socio';
 
         const formData = new URLSearchParams();
         formData.append('username', this.username);
@@ -69,15 +69,29 @@ export default {
         const tokenResponse = await axios.post(tokenUrl, formData);
         const token = tokenResponse.data.access_token;
         
-        // Guarda el token y el rol en el almacenamiento local
-        localStorage.setItem('token', token);
-        localStorage.setItem('userRole', this.role);
+        // Guardar el token y el rol en ambos almacenamientos
+        try {
+          localStorage.setItem('token', token);
+          sessionStorage.setItem('token', token);
+          localStorage.setItem('userRole', this.role);
+          sessionStorage.setItem('userRole', this.role);
+        } catch (e) {
+          console.error('Error guardando en localStorage:', e);
+          try {
+            sessionStorage.setItem('token', token);
+            sessionStorage.setItem('userRole', this.role);
+          } catch (e2) {
+            console.error('Error guardando en sessionStorage:', e2);
+            this.errorMessage = 'Error al guardar las credenciales. Por favor, verifica la configuración de tu navegador.';
+            return;
+          }
+        }
 
-        console.log('Token guardado:', token); // Para depuración
+        console.log('Token guardado:', token);
 
         const userUrl = this.role === 'admin'
-          ? 'http://localhost:8000/admin/me'
-          : 'http://localhost:8000/socios/me';
+          ? 'http://192.168.10.21:8000/admin/me'
+          : 'http://192.168.10.21:8000/socios/me';
 
         const userResponse = await axios.get(userUrl, {
           headers: { Authorization: `Bearer ${token}` }
