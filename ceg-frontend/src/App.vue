@@ -82,7 +82,7 @@ export default {
       localStorage.removeItem('token');
       localStorage.removeItem('userRole');
       this.updateAuthState(false, false, false);
-      this.$router.push('/login');
+      this.$router.push('/');
     },
 
     handleLoginSuccess(userData) {

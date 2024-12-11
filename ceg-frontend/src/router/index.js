@@ -11,9 +11,9 @@ import MiPerfil from '../views/MiPerfil.vue'
 import Logout from '../views/Logout.vue'
 
 const routes = [
-  { path: '/', name: 'Home', component: Home },
-  { path: '/login', name: 'Login', component: Login },
-  { path: '/register', name: 'Register', component: Register },
+  { path: '/', name: 'Home', component: Home, meta: { requiresAuth: false } },
+  { path: '/login', name: 'Login', component: Login, meta: { requiresAuth: false } },
+  { path: '/register', name: 'Register', component: Register, meta: { requiresAuth: false } },
   {
     path: '/reservar/:id?',
     name: 'Reservar',
@@ -68,7 +68,7 @@ const routes = [
     component: MiPerfil,
     meta: { requiresAuth: true }
   },
-  { path: '/logout', name: 'Logout', component: Logout },
+  { path: '/logout', name: 'Logout', component: Logout, meta: { requiresAuth: false } },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: Home }  // Ruta catch-all
 ]
 
@@ -81,10 +81,12 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = localStorage.getItem('token') !== null
   const userRole = localStorage.getItem('userRole')
 
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  if (to.meta.requiresAuth === false) {
+    next()
+  } else if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
   } else if (to.meta.requiresAdmin && userRole !== 'admin') {
-    next('/')  // Redirigir a la página principal si no es admin
+    next('/')
   } else {
     next()
   }

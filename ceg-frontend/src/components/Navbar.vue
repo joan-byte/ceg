@@ -64,7 +64,11 @@ export default {
   },
   methods: {
     handleLogout() {
-      this.$emit('logout');
+      // Limpiar el almacenamiento local
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      // Redirigir a la página de inicio y forzar recarga
+      window.location.href = '/';
     }
   },
   watch: {

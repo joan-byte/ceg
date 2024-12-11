@@ -88,7 +88,6 @@ export default {
           isAdmin.value = false;
           localStorage.removeItem('token');
           localStorage.removeItem('userRole');
-          router.push('/login');
         }
       }
       userRoleLoaded.value = true;
