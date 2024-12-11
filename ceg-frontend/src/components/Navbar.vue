@@ -33,11 +33,6 @@
       </div>
     </div>
   </nav>
-  <div v-if="showDebug" class="debug-info">
-    <p>Autenticado: {{ isAuthenticated }}</p>
-    <p>Admin: {{ isAdmin }}</p>
-    <p>Socio: {{ isSocio }}</p>
-  </div>
 </template>
 
 <script>
@@ -57,11 +52,6 @@ export default {
     }
   },
   emits: ['logout'],
-  data() {
-    return {
-      showDebug: process.env.NODE_ENV === 'development'
-    }
-  },
   methods: {
     handleLogout() {
       // Limpiar el almacenamiento local
@@ -70,24 +60,6 @@ export default {
       // Redirigir a la página de inicio y forzar recarga
       window.location.href = '/';
     }
-  },
-  watch: {
-    isAuthenticated(newVal) {
-      console.log('isAuthenticated changed:', newVal);
-    },
-    isAdmin(newVal) {
-      console.log('isAdmin changed:', newVal);
-    },
-    isSocio(newVal) {
-      console.log('isSocio changed:', newVal);
-    }
-  },
-  mounted() {
-    console.log('Navbar mounted. Auth state:', {
-      isAuthenticated: this.isAuthenticated,
-      isAdmin: this.isAdmin,
-      isSocio: this.isSocio
-    });
   }
 }
 </script>
@@ -105,16 +77,6 @@ export default {
 .navbar a {
   color: white;
   text-decoration: none;
-}
-.debug-info {
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  background-color: rgba(0,0,0,0.7);
-  color: white;
-  padding: 10px;
-  border-radius: 5px;
-  font-size: 12px;
 }
 .container {
   max-width: 1400px;
