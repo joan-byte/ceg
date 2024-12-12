@@ -81,6 +81,7 @@ export default {
       isEditing: false,
       reservaId: null,
       pistas: [],
+      baseURL: window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'http://192.168.10.21:8000',
       reserva: {
         pista_id: '',
         dia: '',
@@ -120,8 +121,9 @@ export default {
   methods: {
     async fetchPistas() {
       try {
-        const response = await axios.get('http://localhost:8000/pistas/');
+        const response = await axios.get(`${this.baseURL}/pistas/`);
         this.pistas = response.data;
+        console.log('Pistas cargadas:', this.pistas);
       } catch (error) {
         console.error("Error al obtener las pistas:", error);
         this.errores.push("Error al obtener las pistas");
@@ -149,7 +151,7 @@ export default {
       if (jugador.name && jugador.apellido && !jugador.tipo_jugador) {
         try {
           console.log('Enviando solicitud al servidor...');
-          const response = await axios.post('http://192.168.10.21:8000/jugadores/verificar/', {
+          const response = await axios.post(`${this.baseURL}/jugadores/verificar/`, {
             name: jugador.name,
             apellido: jugador.apellido,
           });
@@ -209,7 +211,7 @@ export default {
       try {
         const horaInicio = this.reserva.hora_inicio.slice(0, 5);  // Asegura formato HH:MM
         const horaFin = this.reserva.hora_fin.slice(0, 5);  // Asegura formato HH:MM
-        const response = await axios.get(`http://192.168.10.21:8000/reservas/verificar_solapamiento_jugador/`, {
+        const response = await axios.get(`${this.baseURL}/reservas/verificar_solapamiento_jugador/`, {
           params: {
             nombre: jugador.name,
             apellido: jugador.apellido,
@@ -236,7 +238,7 @@ export default {
       try {
         const horaInicio = this.reserva.hora_inicio.slice(0, 5);  // Asegura formato HH:MM
         const horaFin = this.reserva.hora_fin.slice(0, 5);  // Asegura formato HH:MM
-        const response = await axios.get(`http://192.168.10.21:8000/reservas/verificar_solapamiento_pista/`, {
+        const response = await axios.get(`${this.baseURL}/reservas/verificar_solapamiento_pista/`, {
           params: {
             pista_id: this.reserva.pista_id,
             dia: this.reserva.dia,
@@ -328,14 +330,14 @@ export default {
         
         if (this.isEditing) {
           if (esMiReserva) {
-            response = await axios.put(`http://192.168.10.21:8000/reservas/mis-reservas/${this.reservaId}`, reservaData, {
+            response = await axios.put(`${this.baseURL}/reservas/mis-reservas/${this.reservaId}`, reservaData, {
               headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
           } else {
-            response = await axios.put(`http://192.168.10.21:8000/reservas/${this.reservaId}`, reservaData);
+            response = await axios.put(`${this.baseURL}/reservas/${this.reservaId}`, reservaData);
           }
         } else {
-          response = await axios.post('http://192.168.10.21:8000/reservas/', reservaData);
+          response = await axios.post(`${this.baseURL}/reservas/`, reservaData);
         }
         console.log("Respuesta del servidor:", response.data);
         console.log("Jugadores actualizados:", response.data.jugadores);
@@ -380,7 +382,7 @@ export default {
     },
     async cargarReserva(id) {
       try {
-        const response = await axios.get(`http://192.168.10.21:8000/reservas/${id}`, {
+        const response = await axios.get(`${this.baseURL}/reservas/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         const reservaData = response.data;
@@ -398,7 +400,7 @@ export default {
       const token = localStorage.getItem('token');
       if (token && this.userRole === 'socio') {
         try {
-          const response = await axios.get('http://192.168.10.21:8000/socios/me', {
+          const response = await axios.get(`${this.baseURL}/socios/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           console.log('Datos del socio recibidos:', response.data);
@@ -451,7 +453,7 @@ export default {
     },
     async cargarMiReserva(id) {
       try {
-        const response = await axios.get(`http://192.168.10.21:8000/reservas/mis-reservas/${id}`, {
+        const response = await axios.get(`${this.baseURL}/reservas/mis-reservas/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         this.configurarReservaParaEdicion(response.data);

@@ -10,6 +10,7 @@ from typing import List, Optional
 import logging
 from datetime import datetime, timedelta, date, time
 from app.auth import get_current_socio
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 
@@ -147,17 +148,40 @@ def read_reservas(db: Session = Depends(get_db)):
         ahora = datetime.now()
         limite = ahora + timedelta(hours=24)
         
-        reservas = db.query(models.Reserva).filter(
-            ((models.Reserva.dia == ahora.date()) & (models.Reserva.hora_fin > ahora.time())) |
-            ((models.Reserva.dia > ahora.date()) & (models.Reserva.dia < limite.date())) |
-            ((models.Reserva.dia == limite.date()) & (models.Reserva.hora_inicio <= limite.time()))
-        ).order_by(models.Reserva.dia, models.Reserva.hora_inicio).all()
+        # Obtener todas las reservas sin filtrar primero
+        reservas = db.query(models.Reserva)\
+            .options(joinedload(models.Reserva.jugadores))\
+            .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
+            .all()
         
-        logger.info(f"Número de reservas encontradas: {len(reservas)}")
-        for reserva in reservas:
-            logger.info(f"Reserva: ID={reserva.id}, Día={reserva.dia}, Hora inicio={reserva.hora_inicio}")
+        # Filtrar las reservas manualmente
+        filtered_reservas = []
+        for r in reservas:
+            # Crear objetos datetime para inicio y fin
+            inicio = datetime.combine(r.dia, r.hora_inicio)
+            fin = datetime.combine(r.dia, r.hora_fin)
+            
+            # Si la hora de fin es menor o igual que la hora de inicio, significa que termina al día siguiente
+            if fin <= inicio:
+                fin = datetime.combine(r.dia + timedelta(days=1), r.hora_fin)
+            
+            # Verificar si la reserva está en curso (empezó antes de ahora y termina después de ahora)
+            en_curso = inicio <= ahora and ahora <= fin
+            if en_curso:
+                filtered_reservas.append(r)
+                continue
+            
+            # Verificar si la reserva empieza en las próximas 24 horas
+            empieza_en_24h = inicio >= ahora and inicio <= limite
+            if empieza_en_24h:
+                filtered_reservas.append(r)
+                continue
         
-        return reservas
+        # Ordenar las reservas por fecha y hora
+        filtered_reservas.sort(key=lambda r: (r.dia, r.hora_inicio))
+        
+        return filtered_reservas
+        
     except Exception as e:
         logger.error(f"Error en read_reservas: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -173,12 +197,46 @@ async def read_mis_reservas(
     now = datetime.now()
     end = now + timedelta(hours=24)
     
-    filtered_reservas = [
-        r for r in all_reservas 
-        if now <= datetime.combine(r.dia, r.hora_inicio) <= end
-    ]
+    logger.info(f"Hora actual: {now}")
+    logger.info(f"Límite 24h: {end}")
+    logger.info(f"Total de reservas encontradas: {len(all_reservas)}")
     
-    logger.info(f"Encontradas {len(filtered_reservas)} reservas para las próximas 24 horas")
+    filtered_reservas = []
+    for r in all_reservas:
+        logger.info(f"\nAnalizando reserva {r.id}:")
+        logger.info(f"Día: {r.dia}, Inicio: {r.hora_inicio}, Fin: {r.hora_fin}")
+        
+        # Crear objetos datetime para inicio y fin
+        inicio = datetime.combine(r.dia, r.hora_inicio)
+        fin = datetime.combine(r.dia, r.hora_fin)
+        
+        logger.info(f"Fecha/hora inicio original: {inicio}")
+        logger.info(f"Fecha/hora fin original: {fin}")
+        
+        # Si la hora de fin es 00:00 o menor que la hora de inicio, ajustar al día siguiente
+        if r.hora_fin <= r.hora_inicio or (r.hora_fin.hour == 0 and r.hora_fin.minute == 0):
+            fin = datetime.combine(r.dia + timedelta(days=1), r.hora_fin)
+            logger.info(f"Ajustando fin al día siguiente: {fin}")
+        
+        # Verificar si la reserva está en curso
+        en_curso = now >= inicio and now <= fin
+        logger.info(f"¿Está en curso? {en_curso} ({now} está entre {inicio} y {fin})")
+        if en_curso:
+            logger.info(f"-> Incluyendo reserva en curso: {r.id}")
+            filtered_reservas.append(r)
+            continue
+        
+        # Verificar si la reserva comienza en las próximas 24 horas
+        es_futura = inicio >= now and inicio <= end
+        logger.info(f"¿Es futura? {es_futura} ({inicio} está entre {now} y {end})")
+        if es_futura:
+            logger.info(f"-> Incluyendo reserva futura: {r.id}")
+            filtered_reservas.append(r)
+    
+    logger.info(f"\nResumen final:")
+    logger.info(f"Encontradas {len(filtered_reservas)} reservas en curso o próximas 24 horas")
+    for r in filtered_reservas:
+        logger.info(f"- Reserva {r.id}: {r.dia} {r.hora_inicio}-{r.hora_fin}")
     return filtered_reservas
 
 @router.get("/{reserva_id}", response_model=schemas.Reserva)

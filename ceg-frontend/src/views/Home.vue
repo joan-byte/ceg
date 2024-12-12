@@ -79,12 +79,35 @@ export default {
     const fetchReservas = async () => {
       try {
         const response = await axios.get('http://192.168.10.21:8000/reservas/');
-        reservas.value = response.data.map(r => ({
-          ...r,
-          dia: new Date(r.dia),
-          hora_inicio: r.hora_inicio.slice(0, 5),
-          hora_fin: r.hora_fin.slice(0, 5)
-        }));
+        
+        reservas.value = response.data.map(r => {
+          // Crear objeto Date para la fecha
+          const fecha = new Date(r.dia);
+          
+          // Extraer horas y minutos de inicio
+          const [horaInicio, minInicio] = r.hora_inicio.split(':').map(Number);
+          const inicioDate = new Date(fecha);
+          inicioDate.setHours(horaInicio, minInicio, 0);
+          
+          // Extraer horas y minutos de fin
+          const [horaFin, minFin] = r.hora_fin.split(':').map(Number);
+          const finDate = new Date(fecha);
+          finDate.setHours(horaFin, minFin, 0);
+          
+          // Si la hora de fin es menor que la hora de inicio, ajustar al día siguiente
+          if (finDate <= inicioDate) {
+            finDate.setDate(finDate.getDate() + 1);
+          }
+          
+          return {
+            ...r,
+            dia: fecha,
+            hora_inicio: r.hora_inicio.slice(0, 5),
+            hora_fin: r.hora_fin.slice(0, 5),
+            _fechaInicio: inicioDate,
+            _fechaFin: finDate
+          };
+        });
       } catch (err) {
         console.error('Error al obtener las reservas:', err);
         error.value = 'Error al cargar las reservas. Por favor, intente más tarde.';
@@ -123,14 +146,7 @@ export default {
 
     const isReservaEnCurso = (reserva) => {
       const ahora = new Date();
-      const fechaReserva = new Date(reserva.dia);
-      const horaInicio = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
-                               ...reserva.hora_inicio.split(':').map(Number));
-      const horaFin = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
-                           ...reserva.hora_fin.split(':').map(Number));
-
-      return fechaReserva.toDateString() === ahora.toDateString() &&
-             ahora >= horaInicio && ahora <= horaFin;
+      return ahora >= reserva._fechaInicio && ahora <= reserva._fechaFin;
     };
 
     const formatDate = (dateString) => {

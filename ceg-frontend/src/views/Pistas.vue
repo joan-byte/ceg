@@ -48,6 +48,7 @@
 
 <script>
 import axios from 'axios';
+import { getBaseURL } from '../config'
 
 export default {
   data() {
@@ -62,13 +63,18 @@ export default {
       currentPista: null,
     };
   },
+  computed: {
+    baseURL() {
+      return getBaseURL();
+    }
+  },
   methods: {
     async fetchPistas() {
       try {
-        const response = await axios.get('http://localhost:8000/pistas/');
+        const response = await axios.get(`${this.baseURL}/pistas/`);
         this.pistas = response.data;
       } catch (error) {
-        console.error('Error fetching pistas:', error);
+        console.error('Error al obtener pistas:', error);
       }
     },
     async submitForm() {
@@ -81,56 +87,53 @@ export default {
     async createPista() {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.post('http://localhost:8000/pistas/', this.form, {
+        const response = await axios.post(`${this.baseURL}/pistas/`, this.form, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        this.pistas.push(response.data);
-        this.resetForm();
+        if (response.data) {
+          this.pistas.push(response.data);
+          this.resetForm();
+        }
       } catch (error) {
-        console.error('Error creating pista:', error);
+        console.error('Error al crear pista:', error);
       }
     },
     async updatePista() {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.put(`http://localhost:8000/pistas/${this.currentPista.id}`, this.form, {
+        const response = await axios.put(`${this.baseURL}/pistas/${this.currentPista.id}`, this.form, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const index = this.pistas.findIndex(p => p.id === this.currentPista.id);
-        if (index !== -1) {
-          this.pistas[index] = response.data;
+        if (response.data) {
+          const index = this.pistas.findIndex(p => p.id === this.currentPista.id);
+          if (index !== -1) {
+            this.pistas[index] = response.data;
+          }
+          this.resetForm();
         }
-        this.resetForm();
-        // Añadir un mensaje de éxito
-        alert('Pista actualizada con éxito');
-        // Recargar la página después de un breve retraso
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
       } catch (error) {
-        console.error('Error updating pista:', error);
-        alert('Error al actualizar la pista. Por favor, intente nuevamente.');
+        console.error('Error al actualizar pista:', error);
       }
     },
     editPista(pista) {
       this.currentPista = pista;
       this.form = { ...pista };
     },
-    async deletePista(pistaId) {
+    async deletePista(id) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:8000/pistas/${pistaId}`, {
+        await axios.delete(`${this.baseURL}/pistas/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        this.pistas = this.pistas.filter(p => p.id !== pistaId);
+        this.pistas = this.pistas.filter(p => p.id !== id);
       } catch (error) {
-        console.error('Error deleting pista:', error);
+        console.error('Error al eliminar pista:', error);
       }
     },
     resetForm() {

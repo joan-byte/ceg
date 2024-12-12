@@ -90,6 +90,7 @@
 <script>
 import axios from 'axios'
 import '../styles/login.css'
+import { getBaseURL } from '../config'
 
 export default {
   data() {
@@ -106,17 +107,21 @@ export default {
       errorMessage: ''
     };
   },
+  computed: {
+    baseURL() {
+      return getBaseURL();
+    }
+  },
   methods: {
     async fetchAdmins() {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/admin/', {
+        const response = await axios.get(`${this.baseURL}/admin/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         this.admins = response.data;
-        console.log('Administradores obtenidos:', this.admins);
       } catch (error) {
         console.error('Error al obtener administradores:', error);
       }
@@ -131,7 +136,7 @@ export default {
     async createAdmin() {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.post('http://localhost:8000/admin/', {
+        const response = await axios.post(`${this.baseURL}/admin/`, {
           name: this.form.name,
           email: this.form.email,
           password: this.form.new_password,
@@ -164,7 +169,7 @@ export default {
 
         console.log('Datos a enviar para actualización:', updateData);
 
-        const response = await axios.put(`http://localhost:8000/admin/${this.currentAdmin.id}`, updateData, {
+        const response = await axios.put(`${this.baseURL}/admin/${this.currentAdmin.id}`, updateData, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -197,7 +202,7 @@ export default {
     async deleteAdmin(adminId) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:8000/admin/${adminId}`, {
+        await axios.delete(`${this.baseURL}/admin/${adminId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -138,13 +138,68 @@ export default {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
 
+        console.log('Todas las reservas:', reservasResponse.data);
+
         // Filtrar las reservas donde el socio actual es jugador
-        this.reservas = reservasResponse.data.filter(reserva => 
-          reserva.jugadores.some(jugador => 
+        this.reservas = reservasResponse.data.filter(reserva => {
+          // Verificar si el socio actual es jugador
+          const esSocioJugador = reserva.jugadores.some(jugador => 
             jugador.name === socioActual.name && 
             jugador.apellido === socioActual.lastname
-          )
-        );
+          );
+
+          if (!esSocioJugador) return false;
+
+          const ahora = new Date();
+          const fechaReserva = new Date(reserva.dia);
+          
+          // Crear fecha/hora de inicio
+          const horaInicioArr = reserva.hora_inicio.split(':').map(Number);
+          const horaInicio = new Date(fechaReserva);
+          horaInicio.setHours(horaInicioArr[0], horaInicioArr[1], 0);
+
+          // Crear fecha/hora de fin
+          const horaFinArr = reserva.hora_fin.split(':').map(Number);
+          const horaFin = new Date(fechaReserva);
+          horaFin.setHours(horaFinArr[0], horaFinArr[1], 0);
+
+          // Si la hora de fin es 00:00 o menor que la hora de inicio, ajustar al día siguiente
+          if (horaFin <= horaInicio || (horaFinArr[0] === 0 && horaFinArr[1] === 0)) {
+            horaFin.setDate(horaFin.getDate() + 1);
+          }
+
+          console.log('Analizando reserva:', {
+            dia: reserva.dia,
+            inicio: reserva.hora_inicio,
+            fin: reserva.hora_fin,
+            horaInicioObj: horaInicio,
+            horaFinObj: horaFin,
+            ahora: ahora
+          });
+
+          // Verificar si la reserva está en curso
+          const reservaEnCurso = ahora >= horaInicio && ahora <= horaFin;
+          if (reservaEnCurso) {
+            console.log('Reserva en curso');
+            return true;
+          }
+
+          // Para reservas futuras, comprobar solo la hora de inicio
+          const HORAS_FUTURAS = 24;
+          const tiempoLimite = new Date(ahora.getTime() + (HORAS_FUTURAS * 60 * 60 * 1000));
+          
+          // Mostrar si la hora de inicio está en las próximas 24 horas
+          const debeIncluirse = horaInicio >= ahora && horaInicio <= tiempoLimite;
+          console.log('¿Debe incluirse?', debeIncluirse, {
+            horaInicio: horaInicio,
+            ahora: ahora,
+            tiempoLimite: tiempoLimite
+          });
+          
+          return debeIncluirse;
+        });
+
+        console.log('Reservas filtradas:', this.reservas);
 
         // Asegurarse de que cada reserva tenga la información de la pista
         await this.fetchPistas();
@@ -153,7 +208,6 @@ export default {
         this.reservas = this.reservas.map(reserva => {
           let pistaId = null;
           
-          // Intentar obtener el ID de la pista de todas las formas posibles
           if (typeof reserva.pista_id !== 'undefined' && reserva.pista_id !== null) {
             pistaId = reserva.pista_id;
           } else if (reserva.pista && typeof reserva.pista.id !== 'undefined') {
@@ -166,7 +220,6 @@ export default {
           };
         });
 
-        console.log("Reservas normalizadas:", this.reservas);
       } catch (error) {
         console.error('Error al obtener las reservas:', error);
         if (error.response) {
@@ -184,13 +237,23 @@ export default {
     isReservaEnCurso(reserva) {
       const ahora = new Date();
       const fechaReserva = new Date(reserva.dia);
-      const horaInicio = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
-                               ...reserva.hora_inicio.split(':').map(Number));
-      const horaFin = new Date(fechaReserva.getFullYear(), fechaReserva.getMonth(), fechaReserva.getDate(), 
-                           ...reserva.hora_fin.split(':').map(Number));
+      
+      // Crear fecha/hora de inicio
+      const horaInicioArr = reserva.hora_inicio.split(':').map(Number);
+      const horaInicio = new Date(fechaReserva);
+      horaInicio.setHours(horaInicioArr[0], horaInicioArr[1], 0);
 
-      return fechaReserva.toDateString() === ahora.toDateString() &&
-             ahora >= horaInicio && ahora <= horaFin;
+      // Crear fecha/hora de fin
+      const horaFinArr = reserva.hora_fin.split(':').map(Number);
+      const horaFin = new Date(fechaReserva);
+      horaFin.setHours(horaFinArr[0], horaFinArr[1], 0);
+
+      // Si la hora de fin es 00:00 o menor que la hora de inicio, ajustar al día siguiente
+      if (horaFin <= horaInicio || (horaFinArr[0] === 0 && horaFinArr[1] === 0)) {
+        horaFin.setDate(horaFin.getDate() + 1);
+      }
+
+      return ahora >= horaInicio && ahora <= horaFin;
     },
 
     formatDate(dateString) {

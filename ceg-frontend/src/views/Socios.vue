@@ -78,8 +78,8 @@
 </template>
 
 <script>
-import axios from 'axios';
-import '../styles/login.css';
+import axios from 'axios'
+import { getBaseURL } from '../config'
 
 export default {
   data() {
@@ -90,132 +90,171 @@ export default {
         lastname: '',
         email: '',
         phone: '',
-        password: '',
-        new_password: '',
-        type: 'Socio Deportivo',
+        type: '',
+        password: ''
       },
       currentSocio: null,
       isLoading: false,
       errorMessage: '',
-      isAdmin: false, // Nueva variable para determinar si el usuario es admin
-    };
+      successMessage: '',
+      isAdmin: false
+    }
   },
   computed: {
-    baseUrl() {
-      return this.isAdmin ? 'http://localhost:8000/admin/socios' : 'http://localhost:8000/socios';
+    baseURL() {
+      return getBaseURL();
     }
   },
   methods: {
     getToken() {
-      const tokenData = localStorage.getItem('token');
-      if (!tokenData) {
-        throw new Error('No se encontró el token de autenticación');
-      }
-      return tokenData;
+      return localStorage.getItem('token');
     },
     async fetchSocios() {
-      this.isLoading = true;
-      this.errorMessage = '';
       try {
         const token = this.getToken();
-        const response = await axios.get(`${this.baseUrl}/`, {
+        const response = await axios.get(`${this.baseURL}/admin/socios/`, {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         });
         this.socios = response.data;
-        console.log('Socios actualizados:', this.socios);
       } catch (error) {
         console.error('Error al obtener socios:', error);
-        this.errorMessage = 'Error al obtener la lista de socios.';
-        if (error.response && error.response.status === 401) {
-          this.errorMessage = 'No autorizado. Por favor, inicie sesión nuevamente.';
-        }
-      } finally {
-        this.isLoading = false;
+        this.errorMessage = 'Error al cargar los socios';
       }
     },
-    async submitForm() {
+    async createSocio() {
+      try {
+        const token = this.getToken();
+        console.log('Intentando crear socio con datos:', this.form);
+        console.log('URL:', `${this.baseURL}/admin/socios/`);
+        
+        const socioData = {
+          name: this.form.name,
+          lastname: this.form.lastname,
+          email: this.form.email,
+          phone: this.form.phone,
+          type: this.form.type,
+          password: this.form.password
+        };
+        
+        console.log('Datos a enviar:', socioData);
+        
+        const response = await axios.post(`${this.baseURL}/admin/socios/`, socioData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('Respuesta del servidor:', response.data);
+        
+        if (response.data) {
+          this.socios.push(response.data);
+          this.successMessage = 'Socio creado exitosamente';
+          this.resetForm();
+          await this.fetchSocios(); // Recargar la lista después de crear
+        }
+      } catch (error) {
+        console.error('Error al crear socio:', error);
+        if (error.response) {
+          console.error('Datos del error:', error.response.data);
+          this.errorMessage = `Error al crear el socio: ${error.response.data.detail || 'Error desconocido'}`;
+        } else if (error.request) {
+          console.error('Error de red:', error.request);
+          this.errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet.';
+        } else {
+          console.error('Error general:', error.message);
+          this.errorMessage = 'Error al crear el socio. Por favor, intenta de nuevo.';
+        }
+      }
+    },
+    async updateSocio() {
+      try {
+        const token = this.getToken();
+        console.log('Intentando actualizar socio con ID:', this.currentSocio.id);
+        console.log('URL:', `${this.baseURL}/admin/socios/${this.currentSocio.id}`);
+        
+        const updateData = {
+          name: this.form.name,
+          lastname: this.form.lastname,
+          email: this.form.email,
+          phone: this.form.phone,
+          type: this.form.type
+        };
+
+        // Solo incluir la contraseña si se ha proporcionado una nueva
+        if (this.form.password && this.form.password.trim() !== '') {
+          updateData.password = this.form.password;
+        }
+        
+        console.log('Datos a enviar para actualización:', updateData);
+
+        const response = await axios.put(`${this.baseURL}/admin/socios/${this.currentSocio.id}`, updateData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('Respuesta del servidor tras actualización:', response.data);
+
+        if (response.data) {
+          const index = this.socios.findIndex(s => s.id === this.currentSocio.id);
+          if (index !== -1) {
+            this.socios[index] = response.data;
+          }
+          this.successMessage = 'Socio actualizado exitosamente';
+          this.resetForm();
+          await this.fetchSocios(); // Recargar la lista después de actualizar
+        }
+      } catch (error) {
+        console.error('Error al actualizar socio:', error);
+        if (error.response) {
+          console.error('Datos del error:', error.response.data);
+          this.errorMessage = `Error al actualizar el socio: ${error.response.data.detail || 'Error desconocido'}`;
+        } else if (error.request) {
+          console.error('Error de red:', error.request);
+          this.errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet.';
+        } else {
+          console.error('Error general:', error.message);
+          this.errorMessage = 'Error al actualizar el socio. Por favor, intenta de nuevo.';
+        }
+      }
+    },
+    submitForm() {
+      console.log('Formulario enviado con datos:', this.form);
       if (this.currentSocio) {
         this.updateSocio();
       } else {
         this.createSocio();
       }
     },
-    async createSocio() {
-      try {
-        const token = this.getToken();
-        const response = await axios.post(`${this.baseUrl}/`, this.form, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        });
-        this.socios.push(response.data);
-        this.resetForm();
-        this.errorMessage = '';
-      } catch (error) {
-        console.error('Error al crear socio:', error.response?.data || error.message);
-        this.errorMessage = 'Error al crear socio. Por favor, verifique los datos e intente nuevamente.';
-      }
-    },
-    async updateSocio() {
-      try {
-        console.log('Datos a enviar:', this.form);
-        const response = await axios.put(`${this.baseUrl}/${this.currentSocio.id}`, this.form, {
-          headers: {
-            Authorization: `Bearer ${this.getToken()}`,
-            'Content-Type': 'application/json'
-          },
-        });
-        console.log('Respuesta del servidor:', response.data);
-        const index = this.socios.findIndex(s => s.id === this.currentSocio.id);
-        if (index !== -1) {
-          this.socios[index] = response.data;
-        }
-        this.resetForm();
-        this.successMessage = 'Socio actualizado correctamente';
-        await this.fetchSocios();
-      } catch (error) {
-        console.error('Error al actualizar socio:', error);
-        if (error.response) {
-          console.error('Respuesta del servidor:', error.response.data);
-          this.errorMessage = `Error al actualizar socio: ${error.response.data.detail}`;
-        } else if (error.request) {
-          this.errorMessage = 'No se recibió respuesta del servidor. Por favor, intente nuevamente.';
-        } else {
-          this.errorMessage = 'Error al enviar la solicitud. Por favor, intente nuevamente.';
-        }
-      }
-    },
     editSocio(socio) {
-      this.currentSocio = { ...socio };
-      this.form = { 
+      this.currentSocio = socio;
+      this.form = {
         name: socio.name,
         lastname: socio.lastname,
         email: socio.email,
         phone: socio.phone,
         type: socio.type,
-        new_password: ''
+        password: ''
       };
-    },
-    cancelEdit() {
-      this.resetForm();
     },
     async deleteSocio(socioId) {
       if (confirm('¿Está seguro de que desea eliminar este socio?')) {
         try {
           const token = this.getToken();
-          await axios.delete(`${this.baseUrl}/${socioId}`, {
+          await axios.delete(`${this.baseURL}/admin/socios/${socioId}`, {
             headers: {
-              Authorization: `Bearer ${token}`,
-            },
+              Authorization: `Bearer ${token}`
+            }
           });
           this.socios = this.socios.filter(s => s.id !== socioId);
-          this.errorMessage = '';
+          this.successMessage = 'Socio eliminado exitosamente';
         } catch (error) {
-          console.error('Error al eliminar socio:', error.response?.data || error.message);
-          this.errorMessage = 'Error al eliminar socio. Por favor, intente nuevamente.';
+          console.error('Error al eliminar socio:', error);
+          this.errorMessage = 'Error al eliminar el socio';
         }
       }
     },
@@ -225,21 +264,19 @@ export default {
         lastname: '',
         email: '',
         phone: '',
-        password: '',
-        new_password: '',
-        type: 'Socio Deportivo',
+        type: '',
+        password: ''
       };
       this.currentSocio = null;
       this.errorMessage = '';
       this.successMessage = '';
-    },
+    }
   },
   async mounted() {
     // Determinar si el usuario es admin al montar el componente
-    const userRole = localStorage.getItem('userRole');
-    this.isAdmin = userRole === 'admin';
+    this.isAdmin = localStorage.getItem('userRole') === 'admin';
     await this.fetchSocios();
-  },
+  }
 };
 </script>
 

@@ -284,15 +284,41 @@ def get_reserva(db: Session, reserva_id: int):
     return db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
 
 def get_reservas(db: Session, skip: int = 0, limit: int = 100):
-    today = date.today()
-    return db.query(models.Reserva)\
-            .options(joinedload(models.Reserva.jugadores))\
-            .filter(models.Reserva.dia >= today)\
-            .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
-            .offset(skip)\
-            .limit(limit)\
-            .all()
-
+    # Obtener todas las reservas y filtrarlas manualmente para manejar correctamente las horas
+    ahora = datetime.now()
+    limite = ahora + timedelta(hours=24)
+    
+    # Primero obtenemos todas las reservas sin filtrar
+    reservas = db.query(models.Reserva)\
+        .options(joinedload(models.Reserva.jugadores))\
+        .order_by(models.Reserva.dia, models.Reserva.hora_inicio)\
+        .all()
+    
+    # Filtramos manualmente para considerar las horas correctamente
+    filtered_reservas = []
+    for r in reservas:
+        # Crear objetos datetime para inicio y fin
+        inicio = datetime.combine(r.dia, r.hora_inicio)
+        fin = datetime.combine(r.dia, r.hora_fin)
+        
+        # Si la hora de fin es menor o igual que la hora de inicio, significa que termina al día siguiente
+        if fin <= inicio:
+            fin = datetime.combine(r.dia + timedelta(days=1), r.hora_fin)
+        
+        # Verificar si la reserva está en curso (empezó antes de ahora y termina después de ahora)
+        en_curso = inicio <= ahora and ahora <= fin
+        if en_curso:
+            filtered_reservas.append(r)
+            continue
+        
+        # Verificar si la reserva empieza en las próximas 24 horas
+        empieza_en_24h = inicio >= ahora and inicio <= limite
+        if empieza_en_24h:
+            filtered_reservas.append(r)
+            continue
+    
+    # Aplicar offset y limit después del filtrado
+    return filtered_reservas[skip:skip + limit]
 
 def create_reserva(db: Session, reserva: schemas.ReservaCreate):
     # Combinar fecha y hora para crear objetos datetime completos
