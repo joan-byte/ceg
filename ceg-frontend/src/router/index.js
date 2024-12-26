@@ -119,12 +119,13 @@ async function verifyToken(token, userRole) {
   try {
     console.log('Verificando token para rol:', userRole);
     const url = userRole === 'admin' 
-      ? 'http://192.168.10.21:8000/admin/me'
-      : 'http://192.168.10.21:8000/socios/me';
+      ? `${import.meta.env.VITE_API_URL}/admin/me`
+      : `${import.meta.env.VITE_API_URL}/socios/me`;
     
     console.log('Haciendo petición a:', url);
     const response = await axios.get(url, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 5000 // 5 segundos de timeout
     });
     console.log('Respuesta de verificación:', response.data);
     return true;
@@ -133,6 +134,10 @@ async function verifyToken(token, userRole) {
     if (error.response) {
       console.error('Respuesta del servidor:', error.response.data);
       console.error('Estado:', error.response.status);
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('La petición excedió el tiempo de espera');
+    } else if (error.code === 'ERR_NETWORK') {
+      console.error('Error de red - servidor no alcanzable');
     }
     return false;
   }

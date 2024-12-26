@@ -126,7 +126,7 @@ export default {
           throw new Error('No hay token de autenticación');
         }
         console.log('Token:', token);
-        const response = await axios.get('http://192.168.10.21:8000/socios/me', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/socios/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         console.log('Datos del socio recibidos:', response.data);
@@ -198,7 +198,7 @@ export default {
         };
         console.log('Headers de la solicitud:', headers);
 
-        const response = await axios.put('http://192.168.10.21:8000/socios/me', updateData, { headers });
+        const response = await axios.put(`${import.meta.env.VITE_API_URL}/socios/me`, updateData, { headers });
         
         console.log('Respuesta del servidor:', response.data);
         this.mensaje = 'Perfil actualizado con éxito';
@@ -251,7 +251,7 @@ export default {
           throw new Error('No hay refresh token disponible');
         }
         
-        const response = await axios.post('http://192.168.10.21:8000/auth/refresh', {
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
           refresh_token: refreshToken
         });
 

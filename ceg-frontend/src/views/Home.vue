@@ -4,12 +4,15 @@
     <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
       <strong class="font-bold">Error:</strong>
       <span class="block sm:inline">{{ error }}</span>
+      <button @click="retryLoading" class="mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+        Reintentar
+      </button>
     </div>
     <div v-if="isLoading" class="text-center py-4">
       <p>Cargando reservas...</p>
     </div>
-    <div v-if="Object.keys(reservasAgrupadasPorPista).length === 0" class="text-center py-4">
-      <p>No hay reservas disponibles en las próximas 24 horas.</p>
+    <div v-else-if="!error && (!reservas.length || Object.keys(reservasAgrupadasPorPista).length === 0)" class="text-center py-4">
+      <p class="text-lg text-gray-600">No hay reservas disponibles en las próximas 24 horas.</p>
     </div>
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       <div v-for="(pistaReservas, pistaId) in reservasAgrupadasPorPista" :key="pistaId" class="flex flex-col">
@@ -66,7 +69,7 @@ export default {
       }
 
       try {
-        const response = await axios.get('http://192.168.10.21:8000/admin/me', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/admin/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         mostrarBotonesAdmin.value = !!response.data;
@@ -78,7 +81,12 @@ export default {
 
     const fetchReservas = async () => {
       try {
-        const response = await axios.get('http://192.168.10.21:8000/reservas/');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/reservas/`);
+        
+        if (!response.data || response.data.length === 0) {
+          reservas.value = [];
+          return;
+        }
         
         reservas.value = response.data.map(r => {
           // Crear objeto Date para la fecha
@@ -118,7 +126,11 @@ export default {
 
     const fetchPistas = async () => {
       try {
-        const response = await axios.get('http://192.168.10.21:8000/pistas/');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/pistas/`);
+        if (!response.data) {
+          pistas.value = {};
+          return;
+        }
         pistas.value = response.data.reduce((acc, pista) => {
           acc[pista.id] = pista.name;
           return acc;
@@ -126,6 +138,7 @@ export default {
       } catch (err) {
         console.error('Error al obtener las pistas:', err);
         error.value = 'Error al cargar las pistas. Por favor, intente más tarde.';
+        pistas.value = {};
       }
     };
 
@@ -170,7 +183,7 @@ export default {
       if (confirm('¿Está seguro de que desea eliminar esta reserva?')) {
         try {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          await axios.delete(`http://192.168.10.21:8000/reservas/${reservaId}`, {
+          await axios.delete(`${import.meta.env.VITE_API_URL}/reservas/${reservaId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           await fetchReservas();
@@ -179,6 +192,12 @@ export default {
           error.value = 'Error al eliminar la reserva. Por favor, intente nuevamente.';
         }
       }
+    };
+
+    const retryLoading = async () => {
+      isLoading.value = true;
+      error.value = null;
+      await fetchReservas();
     };
 
     onMounted(async () => {
@@ -197,7 +216,8 @@ export default {
       formatDate,
       formatTime,
       editReserva,
-      deleteReserva
+      deleteReserva,
+      retryLoading
     };
   }
 };

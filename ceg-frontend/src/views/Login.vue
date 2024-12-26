@@ -59,8 +59,8 @@ export default {
       this.errorMessage = '';
       try {
         const tokenUrl = this.role === 'admin' 
-          ? 'http://192.168.10.21:8000/token_admin' 
-          : 'http://192.168.10.21:8000/token_socio';
+          ? `${import.meta.env.VITE_API_URL}/token_admin` 
+          : `${import.meta.env.VITE_API_URL}/token_socio`;
 
         const formData = new URLSearchParams();
         formData.append('username', this.username);
@@ -90,8 +90,8 @@ export default {
         console.log('Token guardado:', token);
 
         const userUrl = this.role === 'admin'
-          ? 'http://192.168.10.21:8000/admin/me'
-          : 'http://192.168.10.21:8000/socios/me';
+          ? `${import.meta.env.VITE_API_URL}/admin/me`
+          : `${import.meta.env.VITE_API_URL}/socios/me`;
 
         const userResponse = await axios.get(userUrl, {
           headers: { Authorization: `Bearer ${token}` }

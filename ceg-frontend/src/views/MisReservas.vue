@@ -128,13 +128,13 @@ export default {
       this.errorMessage = '';
       try {
         // Primero obtener los datos del socio actual
-        const tokenResponse = await axios.get('http://192.168.10.21:8000/socios/me', {
+        const tokenResponse = await axios.get(`${import.meta.env.VITE_API_URL}/socios/me`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         const socioActual = tokenResponse.data;
 
         // Obtener todas las reservas
-        const reservasResponse = await axios.get('http://192.168.10.21:8000/reservas/', {
+        const reservasResponse = await axios.get(`${import.meta.env.VITE_API_URL}/reservas/`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
 
@@ -275,7 +275,7 @@ export default {
     async deleteReserva(reservaId) {
       if (confirm('¿Está seguro de que desea eliminar esta reserva?')) {
         try {
-          await axios.delete(`http://192.168.10.21:8000/reservas/${reservaId}`, {
+          await axios.delete(`${import.meta.env.VITE_API_URL}/reservas/${reservaId}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           await this.fetchMisReservas();
@@ -292,7 +292,7 @@ export default {
 
     async fetchPistas() {
       try {
-        const response = await axios.get('http://192.168.10.21:8000/pistas/');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/pistas/`);
         this.pistas = response.data.reduce((acc, pista) => {
           acc[pista.id] = pista.name;
           return acc;

@@ -6,17 +6,58 @@ app = FastAPI()
 
 # Configuración CORS
 origins = [
-    "http://localhost:5173",  # URL de tu frontend local
-    "http://localhost:8080",  # Otras URLs que puedan necesitar acceso
-    "http://192.168.10.21:5173",  # URL del frontend en la red local
+    # URLs localhost
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:4173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    
+    # URLs 127.0.0.1
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:4173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    
+    # URLs IP local
+    "http://192.168.10.104:5173",
+    "http://192.168.10.104:5174",
+    "http://192.168.10.104:4173",
+    "http://192.168.10.104:3000",
+    "http://192.168.10.104:8000",
+    
+    "http://192.168.10.21:5173",
+    "http://192.168.10.21:5174",
+    "http://192.168.10.21:4173",
+    "http://192.168.10.21:3000",
+    "http://192.168.10.21:8000",
+    
+    "http://192.168.10.31:5173",
+    "http://192.168.10.31:5174",
+    "http://192.168.10.31:4173",
+    "http://192.168.10.31:3000",
+    "http://192.168.10.31:8000",
+    
+    # URLs con www
+    "http://www.192.168.10.31:5173",
+    "http://www.192.168.10.31:4173",
+    
+    # URLs HTTPS (por si acaso)
+    "https://192.168.10.31:5173",
+    "https://192.168.10.31:4173",
+    "https://localhost:5173",
+    "https://127.0.0.1:5173"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # Importar los routers individualmente
