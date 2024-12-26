@@ -1,0 +1,10 @@
+{
+  "appId": "com.ceg.app",
+  "appName": "CEG",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  }
+}
