@@ -19,3 +19,6 @@ venv/
 # Node modules
 node_modules/
 dist/
+
+# Scripts de administración
+ceg-backend/create_admin.py
