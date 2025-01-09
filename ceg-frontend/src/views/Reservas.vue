@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <!-- Segunda fila: Hora de inicio y fin -->
+      <!-- Segunda fila: Selección de hora -->
       <div class="flex mb-4">
         <div class="w-1/2 pr-2">
           <label for="hora_inicio" class="block text-gray-700">Hora de Inicio:</label>
@@ -34,16 +34,25 @@
 
       <!-- Filas para cada jugador -->
       <div v-for="(jugador, index) in jugadores" :key="index" class="flex mb-4">
-        <div class="w-1/3 pr-2">
+        <div class="w-1/3 pr-2 relative">
           <label :for="'jugador' + index + '_name'" class="block text-gray-700">Nombre Jugador {{ index + 1 }}:</label>
           <input type="text" :id="'jugador' + index + '_name'" :name="'jugador' + index + '_name'" 
-                 v-model="jugador.name" @blur="verificarJugador(index)" placeholder="Nombre" 
+                 v-model="jugador.name" @input="buscarSocios(index)" placeholder="Nombre" 
                  class="w-full p-2 border rounded" :readonly="index === 0 && jugador.readonly">
+          <!-- Desplegable de sugerencias para nombre -->
+          <div v-if="jugador.sugerencias && jugador.sugerencias.length > 0" 
+               class="absolute z-10 w-full bg-white border rounded-b shadow-lg max-h-48 overflow-y-auto">
+            <div v-for="sugerencia in jugador.sugerencias" :key="sugerencia.id"
+                 class="p-2 hover:bg-gray-100 cursor-pointer"
+                 @click="seleccionarSocio(index, sugerencia)">
+              {{ sugerencia.name }} {{ sugerencia.lastname }} ({{ sugerencia.type }})
+            </div>
+          </div>
         </div>
-        <div class="w-1/3 px-2">
+        <div class="w-1/3 px-2 relative">
           <label :for="'jugador' + index + '_apellido'" class="block text-gray-700">Apellido Jugador {{ index + 1 }}:</label>
           <input type="text" :id="'jugador' + index + '_apellido'" :name="'jugador' + index + '_apellido'" 
-                 v-model="jugador.apellido" @blur="verificarJugador(index)" placeholder="Apellido" 
+                 v-model="jugador.apellido" @input="buscarSocios(index)" placeholder="Apellido" 
                  class="w-full p-2 border rounded" :readonly="index === 0 && jugador.readonly">
         </div>
         <div class="w-1/3 pl-2">
@@ -90,15 +99,16 @@ export default {
         individuales: false
       },
       jugadores: [
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false }
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] }
       ],
       errores: [],
       isAdmin: false,
       userRole: localStorage.getItem('userRole') || '',
-      socioActual: null
+      socioActual: null,
+      timeoutId: null
     };
   },
   computed: {
@@ -143,35 +153,61 @@ export default {
         this.errores.push("Hora de inicio no válida o pista no seleccionada");
       }
     },
-    async verificarJugador(index) {
-      console.log('Verificando jugador:', index);
+    async buscarSocios(index) {
       const jugador = this.jugadores[index];
-      console.log('Datos del jugador antes de verificar:', jugador);
-
-      if (jugador.name && jugador.apellido && !jugador.tipo_jugador) {
-        try {
-          console.log('Enviando solicitud al servidor...');
-          const response = await axios.post(`${this.baseURL}/jugadores/verificar/`, {
-            name: jugador.name,
-            apellido: jugador.apellido,
-          });
-          console.log('Respuesta del servidor:', response.data);
-
-          if (typeof response.data === 'object' && 'es_socio' in response.data) {
-            // Nueva estructura de respuesta
-            jugador.tipo_jugador = response.data.es_socio ? response.data.tipo_socio : "No Socio";
-          } else {
-            // Estructura de respuesta anterior
-            jugador.tipo_jugador = response.data;
-          }
-        } catch (error) {
-          console.error("Error al verificar el jugador:", error);
-          jugador.tipo_jugador = 'Error';
-          this.errores.push(`Error al verificar el jugador ${jugador.name} ${jugador.apellido}`);
-        }
+      
+      // Limpiar el timeout anterior si existe
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
       }
 
-      console.log('Datos del jugador después de verificar:', jugador);
+      // Si los campos están vacíos, limpiar sugerencias y tipo_jugador
+      if (!jugador.name && !jugador.apellido) {
+        jugador.sugerencias = [];
+        jugador.tipo_jugador = '';
+        return;
+      }
+
+      // Esperar 300ms después de la última tecla presionada antes de hacer la búsqueda
+      this.timeoutId = setTimeout(async () => {
+        try {
+          const response = await axios.get(`${this.baseURL}/jugadores/buscar`, {
+            params: {
+              nombre: jugador.name,
+              apellido: jugador.apellido
+            }
+          });
+
+          // Si hay resultados, mostrar sugerencias
+          if (response.data.length > 0) {
+            jugador.sugerencias = response.data;
+            // Si hay una coincidencia exacta, actualizar el tipo_jugador
+            const coincidenciaExacta = response.data.find(
+              socio => socio.name.toLowerCase() === jugador.name.toLowerCase() && 
+                      socio.lastname.toLowerCase() === jugador.apellido.toLowerCase()
+            );
+            if (coincidenciaExacta) {
+              jugador.tipo_jugador = coincidenciaExacta.type;
+            } else {
+              jugador.tipo_jugador = 'No Socio';
+            }
+          } else {
+            jugador.sugerencias = [];
+            jugador.tipo_jugador = 'No Socio';
+          }
+        } catch (error) {
+          console.error('Error al buscar socios:', error);
+          jugador.sugerencias = [];
+          jugador.tipo_jugador = 'No Socio';
+        }
+      }, 300);
+    },
+    seleccionarSocio(index, socio) {
+      const jugador = this.jugadores[index];
+      jugador.name = socio.name;
+      jugador.apellido = socio.lastname;
+      jugador.tipo_jugador = socio.type;
+      jugador.sugerencias = [];
     },
     handleReset() {
       this.reserva = {
@@ -182,10 +218,10 @@ export default {
         individuales: false
       };
       this.jugadores = [
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false }
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] }
       ];
       this.errores = [];
       this.rellenarDatosPrimerJugador();
@@ -501,10 +537,10 @@ export default {
         individuales: false
       };
       this.jugadores = [
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false },
-        { name: '', apellido: '', tipo_jugador: '', readonly: false }
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] },
+        { name: '', apellido: '', tipo_jugador: '', readonly: false, sugerencias: [] }
       ];
       this.isEditing = false;
       this.reservaId = null;

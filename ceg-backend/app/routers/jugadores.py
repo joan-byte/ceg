@@ -67,3 +67,15 @@ def delete_jugador(jugador_id: int, db: Session = Depends(get_db)):
 def verificar_disponibilidad_jugador(name: str, apellido: str, dia: str, hora_inicio: str, hora_fin: str, db: Session = Depends(get_db)):
     disponible = crud.verificar_disponibilidad_jugador(db, name, apellido, dia, hora_inicio, hora_fin)
     return disponible
+
+# Endpoint para buscar socios por nombre y apellido
+@router.get("/buscar", response_model=List[schemas.SocioBase])
+def buscar_socios(nombre: str = "", apellido: str = "", db: Session = Depends(get_db)):
+    try:
+        socios = db.query(models.Socio).filter(
+            models.Socio.name.ilike(f"%{nombre}%"),
+            models.Socio.lastname.ilike(f"%{apellido}%")
+        ).all()
+        return socios
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Error al buscar socios: {str(e)}")
