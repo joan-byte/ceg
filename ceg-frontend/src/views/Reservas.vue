@@ -457,12 +457,12 @@ export default {
           name: this.socioActual.name,
           apellido: this.socioActual.lastname,
           tipo_jugador: this.socioActual.type,
-          readonly: true
+          readonly: true,
+          sugerencias: []
         };
         console.log('Datos del jugador antes de asignar:', jugador);
         this.jugadores[0] = jugador;
         console.log('Datos del primer jugador después de rellenar:', this.jugadores[0]);
-        this.verificarJugador(0);
       } else {
         console.log('No se rellenaron los datos del primer jugador');
       }
